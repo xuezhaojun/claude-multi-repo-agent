@@ -7,6 +7,7 @@ A powerful automation toolkit that leverages Claude Code to execute tasks across
 - 🔄 **Multi-Repository Processing**: Execute tasks across multiple repositories in parallel
 - 🍴 **Smart Fork Management**: Automatically forks and clones repositories if needed
 - 🎯 **Flexible Targeting**: Configure organizations, repositories, and branches with ease
+- 📦 **Bundle Support**: Organize task scenarios with predefined target/task combinations
 - 🤖 **Claude-Powered**: Leverages Claude Code for intelligent task execution
 - 📊 **Progress Tracking**: Comprehensive logging and execution summaries
 - ⚡ **One-Click Automation**: Generate and run tasks with a single command
@@ -28,9 +29,13 @@ cd claude-multi-repo-agent
 
 ### 2. Configure Your Task
 
-Create or edit the configuration files:
+Choose one of two approaches to configure your tasks:
 
-#### `target.yml` - Define target repositories
+#### Option A: Direct Configuration (Traditional)
+
+Create or edit the configuration files in the root directory:
+
+##### `target.yml` - Define target repositories
 ```yaml
 target:
   - org: facebook           # GitHub organization
@@ -41,7 +46,7 @@ target:
     branches: [main]
 ```
 
-#### `task.md` - Define your task
+##### `task.md` - Define your task
 ```markdown
 # Task Description
 Update all package.json files to use Node.js 18 as the minimum version.
@@ -52,7 +57,33 @@ Update all package.json files to use Node.js 18 as the minimum version.
 - Ensure tests still pass
 ```
 
-#### `GUIDE.md` - Task execution guidelines (optional)
+#### Option B: Bundle Configuration (Recommended)
+
+Organize predefined scenarios using bundles:
+
+```bash
+# Create bundle directories for different scenarios
+mkdir -p bundles/upgrade-deps
+mkdir -p bundles/security-patch
+mkdir -p bundles/docs-sync
+```
+
+Each bundle contains its own `target.yml` and `task.md`:
+
+```
+bundles/
+├── upgrade-deps/
+│   ├── target.yml      # Repositories for dependency updates
+│   └── task.md         # Dependency upgrade instructions
+├── security-patch/
+│   ├── target.yml      # Security-critical repositories
+│   └── task.md         # Security patch tasks
+└── docs-sync/
+    ├── target.yml      # Documentation repositories
+    └── task.md         # Documentation sync tasks
+```
+
+#### `GUIDE.md` - Task execution guidelines (always in root)
 ```markdown
 # Custom Workflow Guide
 
@@ -64,30 +95,42 @@ Users can customize the entire workflow by specifying their own guide file.
 
 ### 3. Execute Tasks
 
-#### Option A: All-in-One (Recommended)
+#### Standard Execution (using root configuration)
 ```bash
+# All-in-one execution
 ./gen-and-run-tasks.sh
+
+# Step-by-step execution
+./gen-and-run-tasks.sh --generate-only
+./gen-and-run-tasks.sh --run-only
 ```
 
-#### Option B: Step-by-Step
+#### Bundle Execution (using predefined scenarios)
 ```bash
-# Generate task files only
-./gen-and-run-tasks.sh --generate-only
+# Execute specific bundle
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps
 
-# Execute pre-generated tasks
-./gen-and-run-tasks.sh --run-only
+# Generate tasks from bundle only
+./gen-and-run-tasks.sh --bundle bundles/security-patch --generate-only
 
-# Save execution logs to files
-./gen-and-run-tasks.sh --save-logs
+# Save execution logs
+./gen-and-run-tasks.sh --bundle bundles/docs-sync --save-logs
+```
 
+#### Advanced Options
+```bash
 # Use custom guide file
 ./gen-and-run-tasks.sh --guide-file my-custom-guide.md
+
+# Combine bundle with custom guide
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --guide-file guides/company-workflow.md
 ```
 
 ## 📋 Command Options
 
 | Option | Description |
 |--------|-------------|
+| `--bundle PATH` | Specify bundle directory to read target.yml and task.md from |
 | `--guide-file FILE` | Specify custom guide file (default: GUIDE.md) |
 | `--generate-only` | Only generate task files, don't execute them |
 | `--run-only` | Execute existing task files without regenerating |
@@ -99,11 +142,23 @@ Users can customize the entire workflow by specifying their own guide file.
 ```
 claude-multi-repo-agent/
 ├── gen-and-run-tasks.sh    # Main automation script
-├── target.yml              # Repository and branch configuration
-├── task.md                 # Task description
+├── target.yml              # Repository and branch configuration (root mode)
+├── task.md                 # Task description (root mode)
 ├── GUIDE.md                # Default workflow guidelines
 ├── CLAUDE.md               # Project instructions for Claude
-├── custom-guide.md         # Optional custom guide file
+├── bundles/                # Bundle scenarios (NEW)
+│   ├── upgrade-deps/
+│   │   ├── target.yml      # Dependency update repositories
+│   │   └── task.md         # Dependency update tasks
+│   ├── security-patch/
+│   │   ├── target.yml      # Security repositories
+│   │   └── task.md         # Security patch tasks
+│   └── docs-sync/
+│       ├── target.yml      # Documentation repositories
+│       └── task.md         # Documentation sync tasks
+├── guides/                 # Optional custom guide files
+│   ├── company-workflow.md
+│   └── minimal.md
 ├── workspace/              # Auto-managed repository clones
 │   ├── repo1/
 │   ├── repo2/
@@ -219,9 +274,17 @@ Generated task files include:
 
 ## 🔄 Workflow Examples
 
-### Example 1: Update Dependencies Across Repositories
+### Example 1: Bundle-Based Dependency Updates
+
+Create a reusable bundle for dependency updates:
+
+```bash
+# Create the bundle
+mkdir -p bundles/upgrade-deps
+```
+
 ```yaml
-# target.yml
+# bundles/upgrade-deps/target.yml
 target:
   - org: mycompany
     repos: [frontend, backend, mobile-app]
@@ -229,27 +292,74 @@ target:
 ```
 
 ```markdown
-<!-- task.md -->
+<!-- bundles/upgrade-deps/task.md -->
 # Update Dependencies
 Update all projects to use the latest LTS versions of their runtime dependencies.
+
+## Requirements
+- Update package.json/requirements.txt/go.mod as appropriate
+- Run security audit after updates
+- Ensure all tests pass
 ```
 
-### Example 2: Security Patch Application
+```bash
+# Execute the bundle
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps
+```
+
+### Example 2: Security Patch Bundle
+
 ```yaml
-# target.yml
+# bundles/security-patch/target.yml
 target:
   - org: opensource-org
     repos: [project-a, project-b, project-c]
     branches: [main, release-1.0, release-2.0]
 ```
 
-### Example 3: Documentation Updates
+```markdown
+<!-- bundles/security-patch/task.md -->
+# Apply Security Patches
+Apply critical security updates to all affected repositories.
+```
+
+```bash
+# Execute with logging for audit trail
+./gen-and-run-tasks.sh --bundle bundles/security-patch --save-logs
+```
+
+### Example 3: Documentation Sync Bundle
+
 ```yaml
-# target.yml
+# bundles/docs-sync/target.yml
 target:
   - org: documentation-team
     repos: [docs-site, api-docs, user-guides]
     branches: [main]
+```
+
+```bash
+# Generate and review before execution
+./gen-and-run-tasks.sh --bundle bundles/docs-sync --generate-only
+# Review generated tasks in tasks/ directory
+./gen-and-run-tasks.sh --run-only
+```
+
+### Example 4: Traditional Root Configuration
+
+For one-off tasks, still use the root configuration:
+
+```yaml
+# target.yml (in root)
+target:
+  - org: personal-projects
+    repos: [website, blog]
+    branches: [main]
+```
+
+```bash
+# Execute without bundles
+./gen-and-run-tasks.sh
 ```
 
 ## 🛠️ Advanced Usage
@@ -285,8 +395,14 @@ The tool includes built-in validation:
 3. **Review Changes**: Always review generated changes before merging
 4. **Backup Important**: Keep backups of critical repositories
 5. **Monitor Logs**: Use `--save-logs` for debugging and auditing
-6. **Validate Custom Guides**: When using custom guide files, ensure they provide complete automation instructions equivalent to the default guide
-7. **Test Guide Automation**: Verify custom guides work with a test repository before applying to multiple targets
+6. **Organize with Bundles**: Use bundles to organize recurring task scenarios
+   - `bundles/weekly-updates/`: Regular maintenance tasks
+   - `bundles/security-patches/`: Security-related updates
+   - `bundles/compliance-checks/`: Compliance and audit tasks
+7. **Version Control Bundles**: Keep bundle configurations in version control for team sharing
+8. **Test Bundles**: Test new bundles with a small repository set before full deployment
+9. **Validate Custom Guides**: When using custom guide files, ensure they provide complete automation instructions equivalent to the default guide
+10. **Test Guide Automation**: Verify custom guides work with a test repository before applying to multiple targets
 
 ## 🤝 Contributing
 
@@ -294,4 +410,7 @@ This tool is designed to be organization-agnostic and can work with any GitHub r
 
 ---
 
-**💡 Pro Tip**: Use this tool for routine maintenance tasks like dependency updates, documentation syncing, configuration standardization, and compliance checks across your entire repository ecosystem.
+**💡 Pro Tips**: 
+- **Bundle Organization**: Create bundles for different scenarios (e.g., `bundles/monthly-updates/`, `bundles/security-patches/`) to streamline recurring tasks
+- **Team Sharing**: Commit bundle configurations to enable team members to run the same task scenarios consistently  
+- **Task Automation**: Use this tool for routine maintenance like dependency updates, documentation syncing, configuration standardization, and compliance checks across your entire repository ecosystem
