@@ -37,6 +37,7 @@ show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
+    echo "  --bundle PATH       Specify bundle directory to read target.yml and task.md from"
     echo "  --guide-file FILE   Specify custom guide file (default: GUIDE.md)"
     echo "  --generate-only     Only generate task files, don't run them"
     echo "  --run-only         Only run existing task files (skip generation)"
@@ -44,6 +45,7 @@ show_usage() {
     echo "  --help, -h         Show this help message"
     echo ""
     echo "Default behavior: Generate task files and then run them"
+    echo "Bundle mode: When --bundle is specified, reads target.yml and task.md from the bundle directory"
 }
 
 # Parse command line arguments
@@ -51,9 +53,14 @@ GENERATE_ONLY=false
 RUN_ONLY=false
 SAVE_LOGS=false
 GUIDE_FILE="GUIDE.md"
+BUNDLE_PATH=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --bundle)
+            BUNDLE_PATH="$2"
+            shift 2
+            ;;
         --guide-file)
             GUIDE_FILE="$2"
             shift 2
@@ -88,10 +95,25 @@ if [[ "$GENERATE_ONLY" == "true" && "$RUN_ONLY" == "true" ]]; then
     exit 1
 fi
 
-# Define file paths
-TARGET_FILE="target.yml"
-TASK_FILE="task.md"
-# GUIDE_FILE is set by command line arguments or defaults to "GUIDE.md"
+# Define file paths based on bundle configuration
+if [[ -n "$BUNDLE_PATH" ]]; then
+    # Validate bundle directory exists
+    if [[ ! -d "$BUNDLE_PATH" ]]; then
+        echo "Error: Bundle directory '$BUNDLE_PATH' not found"
+        exit 1
+    fi
+    
+    TARGET_FILE="$BUNDLE_PATH/target.yml"
+    TASK_FILE="$BUNDLE_PATH/task.md"
+    # GUIDE_FILE always uses default or user-specified path, not from bundle
+    
+    echo "Using bundle: $BUNDLE_PATH"
+else
+    TARGET_FILE="target.yml"
+    TASK_FILE="task.md"
+    # GUIDE_FILE is set by command line arguments or defaults to "GUIDE.md"
+fi
+
 OUTPUT_DIR="tasks"
 LOG_DIR="logs"
 WORKSPACE_DIR="workspace"

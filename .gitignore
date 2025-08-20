@@ -16,5 +16,6 @@ venv.bak/
 workspace/
 tasks/
 logs/
+bundles/
 task.md
 target.yml
