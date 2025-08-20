@@ -18,8 +18,7 @@ origin    → User's forked repository
 upstream  → Original project repository (PR target)
 ```
 
-- Default branch: `main`
-- Release branches follow the pattern: `backplane-2.x`
+- Default branch: `main` or `master`
 
 ## Workflow Process
 

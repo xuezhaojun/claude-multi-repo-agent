@@ -119,18 +119,28 @@ claude-multi-repo-agent/
 
 ## 📝 Guide Files
 
+### Understanding Guide File Automation
+
+The guide file is a **core automation component** of this project. The default `GUIDE.md` contains comprehensive workflow instructions that enable fully automated repository operations:
+
+- **Repository Management**: Automated fork creation, cloning, and upstream remote setup
+- **Branch Workflows**: Feature branch creation, checkout patterns, and Git operations
+- **Code Standards**: English comment requirements, signing protocols, and quality checks
+- **Pull Request Automation**: Complete GitHub CLI integration for PR creation and submission
+- **Error Handling**: Robust failure recovery and continuation patterns
+
 ### Default Guide (GUIDE.md)
 
-The project includes a default `GUIDE.md` file that contains standardized workflow instructions for:
-- Feature development best practices
-- Code quality standards
-- Testing requirements
-- Pull request submission guidelines
-- Documentation requirements
+The included `GUIDE.md` provides a **production-ready automation framework** with:
+- Complete Git workflow automation (stash, fetch, checkout, branch creation)
+- Signed commit requirements with proper formatting
+- GitHub CLI integration for upstream PR creation
+- Comprehensive error handling and project continuation logic
+- Code quality standards and English comment enforcement
 
 ### Custom Guide Files
 
-You can create and use custom guide files for specific scenarios:
+When creating custom guide files, **ensure they maintain automation capabilities**:
 
 ```bash
 # Use organization-specific workflow
@@ -143,11 +153,19 @@ You can create and use custom guide files for specific scenarios:
 ./gen-and-run-tasks.sh --guide-file guides/minimal.md
 ```
 
+**Custom Guide Requirements:**
+- Must provide complete automation instructions
+- Should include all necessary Git commands and workflows
+- Must specify PR creation patterns and requirements
+- Should handle error scenarios and project continuation
+
 **Benefits of Custom Guides:**
 - Tailor workflows to specific requirements
 - Enforce organization standards
 - Provide domain-specific instructions
 - Support different project types
+
+> ⚠️ **Important**: When specifying custom guide files, ensure they contain sufficient automation instructions for Claude Code to execute tasks successfully. The default guide provides a comprehensive template for automation-ready workflows.
 
 ## 🔧 Configuration Reference
 
@@ -267,6 +285,8 @@ The tool includes built-in validation:
 3. **Review Changes**: Always review generated changes before merging
 4. **Backup Important**: Keep backups of critical repositories
 5. **Monitor Logs**: Use `--save-logs` for debugging and auditing
+6. **Validate Custom Guides**: When using custom guide files, ensure they provide complete automation instructions equivalent to the default guide
+7. **Test Guide Automation**: Verify custom guides work with a test repository before applying to multiple targets
 
 ## 🤝 Contributing
 
