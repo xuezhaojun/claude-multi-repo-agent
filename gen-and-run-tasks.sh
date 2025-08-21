@@ -96,26 +96,33 @@ load_config() {
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "Options:"
-    echo "  --bundle PATH       Specify bundle directory to read target.yml and task.md from"
-    echo "  --guide-file FILE   Specify custom guide file (default: GUIDE.md or from config)"
-    echo "  --generate-only     Only generate task files, don't run them"
-    echo "  --run-only         Only run existing task files (skip generation)"
-    echo "  --save-logs        Save Claude CLI output to log files (when running)"
-    echo "  --parallel         Execute tasks in parallel (automatically enables --save-logs)"
-    echo "  --max-jobs NUM     Maximum number of parallel jobs (default: 4, only with --parallel)"
-    echo "  --help, -h         Show this help message"
+    echo "🚀 ═══════════════════════════════════════════════════════════════════════════════════"
+    echo "🤖 CLAUDE MULTI-REPO AGENT"
+    echo "═══════════════════════════════════════════════════════════════════════════════════"
     echo ""
-    echo "Configuration files:"
-    echo "  config.json        Root configuration file (applies to all executions)"
-    echo "  bundle/config.json Bundle-specific configuration (overrides root config)"
+    echo "📋 Usage: $0 [OPTIONS]"
     echo ""
-    echo "Priority: Command line options > Bundle config > Root config > Defaults"
-    echo "Default behavior: Generate task files and then run them sequentially"
-    echo "Bundle mode: When --bundle is specified, reads target.yml and task.md from the bundle directory"
-    echo "Parallel mode: Tasks from the same repository are still executed sequentially to avoid conflicts"
+    echo "⚙️  Options:"
+    echo "  📦 --bundle PATH       Specify bundle directory to read target.yml and task.md from"
+    echo "  📝 --guide-file FILE   Specify custom guide file (default: GUIDE.md or from config)"
+    echo "  📝 --generate-only     Only generate task files, don't run them"
+    echo "  ▶️  --run-only         Only run existing task files (skip generation)"
+    echo "  📄 --save-logs        Save Claude CLI output to log files (when running)"
+    echo "  🚀 --parallel         Execute tasks in parallel (automatically enables --save-logs)"
+    echo "  ⚙️  --max-jobs NUM     Maximum number of parallel jobs (default: 4, only with --parallel)"
+    echo "  ❓ --help, -h         Show this help message"
+    echo ""
+    echo "📁 Configuration files:"
+    echo "  📜 config.json        Root configuration file (applies to all executions)"
+    echo "  📦 bundle/config.json Bundle-specific configuration (overrides root config)"
+    echo ""
+    echo "🔄 Priority: Command line options > Bundle config > Root config > Defaults"
+    echo "🎯 Default behavior: Generate task files and then run them sequentially"
+    echo "📦 Bundle mode: When --bundle is specified, reads target.yml and task.md from the bundle directory"
+    echo "🚀 Parallel mode: Tasks from the same repository are still executed sequentially to avoid conflicts"
+    echo "═══════════════════════════════════════════════════════════════════════════════════"
+    echo ""
 }
 
 # Initialize variables for command line parsing
@@ -163,8 +170,8 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            echo "Unknown option: $1"
-            echo "Use --help for usage information"
+            echo "❌ Unknown option: $1"
+            echo "📝 Use --help for usage information"
             exit 1
             ;;
     esac
@@ -183,7 +190,7 @@ GUIDE_FILE="${CLI_GUIDE_FILE:-$CONFIG_GUIDE_FILE}"
 
 # Validate conflicting options
 if [[ "$GENERATE_ONLY" == "true" && "$RUN_ONLY" == "true" ]]; then
-    echo "Error: --generate-only and --run-only cannot be used together"
+    echo "❌ Error: --generate-only and --run-only cannot be used together"
     exit 1
 fi
 
@@ -191,11 +198,11 @@ fi
 if [[ "$PARALLEL" == "true" ]]; then
     # Force save logs when running in parallel to avoid output confusion
     SAVE_LOGS=true
-    echo "Parallel mode enabled: automatically enabling log saving"
+    echo "🚀 Parallel mode enabled: automatically enabling log saving"
     
     # Validate max-jobs is a positive integer
     if ! [[ "$MAX_JOBS" =~ ^[1-9][0-9]*$ ]]; then
-        echo "Error: --max-jobs must be a positive integer (got: $MAX_JOBS)"
+        echo "❌ Error: --max-jobs must be a positive integer (got: $MAX_JOBS)"
         exit 1
     fi
 fi
@@ -204,7 +211,7 @@ fi
 if [[ -n "$BUNDLE_PATH" ]]; then
     # Validate bundle directory exists
     if [[ ! -d "$BUNDLE_PATH" ]]; then
-        echo "Error: Bundle directory '$BUNDLE_PATH' not found"
+        echo "❌ Error: Bundle directory '$BUNDLE_PATH' not found"
         exit 1
     fi
     
@@ -212,7 +219,7 @@ if [[ -n "$BUNDLE_PATH" ]]; then
     TASK_FILE="$BUNDLE_PATH/task.md"
     # GUIDE_FILE always uses default or user-specified path, not from bundle
     
-    echo "Using bundle: $BUNDLE_PATH"
+    echo "📦 Using bundle: $BUNDLE_PATH"
 else
     TARGET_FILE="target.yml"
     TASK_FILE="task.md"
@@ -225,25 +232,29 @@ WORKSPACE_DIR="workspace"
 
 # GENERATION SECTION
 if [[ "$RUN_ONLY" != "true" ]]; then
-    echo "=== TASK GENERATION ==="
+    echo ""
+    echo "🚀 ═══════════════════════════════════════════════════════════════════════════════════"
+    echo "📝 TASK GENERATION"
+    echo "═══════════════════════════════════════════════════════════════════════════════════"
+    echo ""
     
     # Clean up tasks directory at the beginning
-    echo "Cleaning up existing tasks directory..."
+    echo "🧹 Cleaning up existing tasks directory..."
     rm -rf "$OUTPUT_DIR"
 
     # Check if required files exist
     if [[ ! -f "$TARGET_FILE" ]]; then
-        echo "Error: $TARGET_FILE not found"
+        echo "❌ Error: $TARGET_FILE not found"
         exit 1
     fi
 
     if [[ ! -f "$TASK_FILE" ]]; then
-        echo "Error: $TASK_FILE not found"
+        echo "❌ Error: $TASK_FILE not found"
         exit 1
     fi
 
     if [[ ! -f "$GUIDE_FILE" ]]; then
-        echo "Error: $GUIDE_FILE not found"
+        echo "❌ Error: $GUIDE_FILE not found"
         exit 1
     fi
 
@@ -254,7 +265,7 @@ if [[ "$RUN_ONLY" != "true" ]]; then
     GUIDE_CONTENT=$(cat "$GUIDE_FILE" | sed '/^[[:space:]]*$/d')
 
     # Create tasks directory
-    echo "Generating tasks in $OUTPUT_DIR directory..."
+    echo "📂 Generating tasks in $OUTPUT_DIR directory..."
     mkdir -p "$OUTPUT_DIR"
     
     # Create workspace directory if it doesn't exist
@@ -267,16 +278,16 @@ if [[ "$RUN_ONLY" != "true" ]]; then
         local repo_dir="$WORKSPACE_DIR/$repo"
         
         if [[ -d "$repo_dir" ]]; then
-            echo "Repository $repo already exists in workspace"
+            echo "   ✅ Repository $repo already exists in workspace"
             return 0
         fi
         
-        echo "Repository $repo not found in workspace, checking for fork..."
+        echo "   🔍 Repository $repo not found in workspace, checking for fork..."
         
         # Get current GitHub username
         local current_user=$(gh api user --jq '.login' 2>/dev/null)
         if [[ -z "$current_user" ]]; then
-            echo "Error: Could not get current GitHub user. Please check gh authentication."
+            echo "   ❌ Error: Could not get current GitHub user. Please check gh authentication."
             return 1
         fi
         
@@ -284,32 +295,32 @@ if [[ "$RUN_ONLY" != "true" ]]; then
         local fork_exists=$(gh repo list "$current_user" --fork --json name --jq ".[].name" | grep "^$repo$" || true)
         
         if [[ -z "$fork_exists" ]]; then
-            echo "Fork not found. Creating fork of $org/$repo..."
+            echo "   🍴 Fork not found. Creating fork of $org/$repo..."
             if ! gh repo fork "$org/$repo" --clone=false; then
-                echo "Error: Failed to fork $org/$repo"
+                echo "   ❌ Error: Failed to fork $org/$repo"
                 return 1
             fi
-            echo "Successfully forked $org/$repo"
+            echo "   ✅ Successfully forked $org/$repo"
         else
-            echo "Fork $current_user/$repo already exists"
+            echo "   ✅ Fork $current_user/$repo already exists"
         fi
         
         # Clone the forked repository
-        echo "Cloning $current_user/$repo to workspace..."
+        echo "   📥 Cloning $current_user/$repo to workspace..."
         if ! gh repo clone "$current_user/$repo" "$repo_dir"; then
-            echo "Error: Failed to clone $current_user/$repo"
+            echo "   ❌ Error: Failed to clone $current_user/$repo"
             return 1
         fi
         
         # Add upstream remote
-        echo "Adding upstream remote $org/$repo..."
+        echo "   🔗 Adding upstream remote $org/$repo..."
         cd "$repo_dir"
         if ! git remote add upstream "https://github.com/$org/$repo.git"; then
-            echo "Warning: Failed to add upstream remote (may already exist)"
+            echo "   ⚠️  Warning: Failed to add upstream remote (may already exist)"
         fi
         cd - > /dev/null
         
-        echo "Successfully set up repository $repo in workspace"
+        echo "   ✅ Successfully set up repository $repo in workspace"
         return 0
     }
 
@@ -326,8 +337,9 @@ if [[ "$RUN_ONLY" != "true" ]]; then
                 IFS='/' read -r org repo branch <<< "$target"
                 
                 # Ensure repository exists in workspace
+                echo "🔧 Setting up repository: $org/$repo"
                 if ! ensure_repo_exists "$org" "$repo"; then
-                    echo "Warning: Failed to set up repository $org/$repo, skipping..."
+                    echo "⚠️  Warning: Failed to set up repository $org/$repo, skipping..."
                     continue
                 fi
                 
@@ -355,13 +367,13 @@ $TASK_CONTENT
 </task>
 EOF
 
-                echo "Created: $OUTPUT_DIR/$TASK_FILE_NAME"
+                echo "   ✅ Created: $OUTPUT_DIR/$TASK_FILE_NAME"
                 TASK_COUNTER=$((TASK_COUNTER + 1))
             fi
         done
     else
         # Fallback: Basic parsing without yq
-        echo "Warning: yq not found, using basic YAML parsing"
+        echo "⚠️  Warning: yq not found, using basic YAML parsing"
 
         # Extract org, repos and branches arrays from YAML and generate combinations
         awk '
@@ -411,8 +423,9 @@ EOF
                 IFS='/' read -r org repo branch <<< "$target"
                 
                 # Ensure repository exists in workspace
+                echo "🔧 Setting up repository: $org/$repo"
                 if ! ensure_repo_exists "$org" "$repo"; then
-                    echo "Warning: Failed to set up repository $org/$repo, skipping..."
+                    echo "⚠️  Warning: Failed to set up repository $org/$repo, skipping..."
                     continue
                 fi
                 
@@ -440,24 +453,29 @@ $TASK_CONTENT
 </task>
 EOF
 
-                echo "Created: $OUTPUT_DIR/$TASK_FILE_NAME"
+                echo "   ✅ Created: $OUTPUT_DIR/$TASK_FILE_NAME"
                 TASK_COUNTER=$((TASK_COUNTER + 1))
             fi
         done
     fi
 
-    echo "Successfully generated tasks in $OUTPUT_DIR directory"
+    echo ""
+    echo "🎉 Successfully generated $((TASK_COUNTER - 1)) tasks in $OUTPUT_DIR directory"
+    echo "═══════════════════════════════════════════════════════════════════════════════════"
     echo ""
 fi
 
 # EXECUTION SECTION
 if [[ "$GENERATE_ONLY" != "true" ]]; then
-    echo "=== TASK EXECUTION ==="
+    echo "🏃 ═══════════════════════════════════════════════════════════════════════════════════"
+    echo "⚡ TASK EXECUTION"
+    echo "═══════════════════════════════════════════════════════════════════════════════════"
+    echo ""
     
     # Check if tasks directory exists
     if [[ ! -d "$OUTPUT_DIR" ]]; then
-        echo "Error: $OUTPUT_DIR directory not found"
-        echo "Please ensure task generation was successful"
+        echo "❌ Error: $OUTPUT_DIR directory not found"
+        echo "📝 Please ensure task generation was successful"
         exit 1
     fi
 
@@ -470,12 +488,12 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
     TASK_FILES=($(find "$OUTPUT_DIR" -name "*.md" | sort))
 
     if [[ ${#TASK_FILES[@]} -eq 0 ]]; then
-        echo "Error: No task files found in $OUTPUT_DIR"
-        echo "Please ensure task generation was successful"
+        echo "❌ Error: No task files found in $OUTPUT_DIR"
+        echo "📝 Please ensure task generation was successful"
         exit 1
     fi
 
-    echo "Found ${#TASK_FILES[@]} task files to process"
+    echo "📁 Found ${#TASK_FILES[@]} task files to process"
 
     # Function to run a single task
     run_task() {
@@ -486,13 +504,15 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         local start_timestamp=$(format_timestamp)
         local start_time=$(date +%s)
         
-        echo "Processing: $task_file"
-        echo "Started at: $start_timestamp"
+        echo ""
+        echo "🚀 Processing: $(basename "$task_file" .md)"
+        echo "🕰️  Started at: $start_timestamp"
         
         local exit_code=0
         
         if [[ "$SAVE_LOGS" == "true" ]]; then
             # Run Claude CLI and save output to log file
+            echo "🤖 Running Claude CLI... (output saved to log)"
             if cat "$task_file" | claude -p "Execute this task" --verbose --output-format text --dangerously-skip-permissions > "$log_file" 2>&1; then
                 exit_code=0
             else
@@ -500,13 +520,13 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
             fi
         else
             # Run Claude CLI and print output directly
-            echo "Output for $task_name:"
-            echo "========================"
+            echo "🤖 Running Claude CLI..."
+            echo "────────────────────────────────────────"
             if cat "$task_file" | claude -p "Execute this task" --verbose --output-format text --dangerously-skip-permissions; then
-                echo "========================"
+                echo "────────────────────────────────────────"
                 exit_code=0
             else
-                echo "========================"
+                echo "────────────────────────────────────────"
                 exit_code=1
             fi
         fi
@@ -516,19 +536,19 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         local duration=$(calculate_duration $start_time $end_time)
         local formatted_duration=$(format_duration $duration)
         
-        echo "Finished at: $end_timestamp"
-        echo "Duration: $formatted_duration"
+        echo "🏁 Finished at: $end_timestamp"
+        echo "⏱️  Duration: $formatted_duration"
         
         if [[ $exit_code -eq 0 ]]; then
-            echo "✓ Completed: $task_name"
+            echo "✅ Completed: $task_name"
             if [[ "$SAVE_LOGS" == "true" ]]; then
-                echo "  Log: $log_file"
+                echo "📄 Log: $log_file"
             fi
             return 0
         else
-            echo "✗ Failed: $task_name"
+            echo "❌ Failed: $task_name"
             if [[ "$SAVE_LOGS" == "true" ]]; then
-                echo "  Log: $log_file"
+                echo "📄 Log: $log_file"
             fi
             return 1
         fi
@@ -549,7 +569,7 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         
         # Write start info to result file with error handling
         if ! echo "STARTED|$task_name|$start_timestamp" > "$result_file" 2>/dev/null; then
-            echo "ERROR: Cannot write to result file $result_file" >&2
+            echo "❌ ERROR: Cannot write to result file $result_file" >&2
             return 1
         fi
         
@@ -576,7 +596,7 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         fi
         
         if ! echo "$result_line" > "$result_file" 2>/dev/null; then
-            echo "ERROR: Cannot write final result to $result_file" >&2
+            echo "❌ ERROR: Cannot write final result to $result_file" >&2
             return 1
         fi
         
@@ -591,7 +611,7 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         if [[ ${BASH_VERSINFO[0]} -ge 4 ]]; then
             declare -A repo_groups
         else
-            echo "Error: Bash 4.0+ required for parallel execution (associative arrays)" >&2
+            echo "❌ Error: Bash 4.0+ required for parallel execution (associative arrays)" >&2
             exit 1
         fi
         
@@ -629,13 +649,13 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         local parallel_start_time=$(date +%s)
         local parallel_start_timestamp=$(format_timestamp)
         
-        echo "Parallel execution with max $MAX_JOBS concurrent jobs"
-        echo "Temporary directory: $temp_dir"
+        echo "🚀 Parallel execution with max $MAX_JOBS concurrent jobs"
+        echo "📁 Temporary directory: $temp_dir"
         
         # Group tasks by repository
         local repo_groups=($(group_tasks_by_repo "${task_files[@]}"))
         
-        echo "Found ${#repo_groups[@]} repository groups to process"
+        echo "📂 Found ${#repo_groups[@]} repository groups to process"
         
         for repo_group in "${repo_groups[@]}"; do
             # Wait if we've reached max jobs
@@ -650,7 +670,7 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
                         # Job completed
                         wait "$pid"
                         job_count=$((job_count - 1))
-                        echo "Repository group completed (PID: $pid)"
+                        echo "✅ Repository group completed (PID: $pid)"
                     else
                         # Job still running
                         new_pids+=("$pid")
@@ -670,7 +690,7 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
             local tasks_str=$(echo "$repo_group" | cut -d: -f2-)
             read -a repo_tasks <<< "$tasks_str"
             
-            echo "Starting repository group: $repo (${#repo_tasks[@]} tasks)"
+            echo "🚀 Starting repository group: $repo (${#repo_tasks[@]} tasks)"
             
             # Create result file for this repository group
             local result_file="$temp_dir/result_${repo}_$$"
@@ -686,7 +706,7 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
                         cat "$task_result_file" >> "$result_file"
                         rm -f "$task_result_file"  # Clean up individual task result file
                     else
-                        echo "ERROR: Task result file not found: $task_result_file" >> "$result_file"
+                        echo "❌ ERROR: Task result file not found: $task_result_file" >> "$result_file"
                     fi
                 done
             ) &
@@ -695,34 +715,34 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
             pids+=("$pid")
             job_count=$((job_count + 1))
             
-            echo "Started repository group: $repo (PID: $pid)"
+            echo "⚙️  Started repository group: $repo (PID: $pid)"
         done
         
         # Wait for all remaining jobs to complete
-        echo "Waiting for all repository groups to complete..."
+        echo "⏳ Waiting for all repository groups to complete..."
         for pid in "${pids[@]}"; do
             wait "$pid"
-            echo "Repository group completed (PID: $pid)"
+            echo "✅ Repository group completed (PID: $pid)"
         done
         
-        echo "All repository groups completed"
+        echo "🎉 All repository groups completed"
         
         # Process results
         local successful=0
         local failed=0
         
         echo ""
-        echo "Task Results:"
-        echo "============="
+        echo "📊 PARALLEL EXECUTION RESULTS"
+        echo "════════════════════════════════════════"
         
         for result_file in "${result_files[@]}"; do
             if [[ -f "$result_file" ]]; then
                 while IFS='|' read -r status task_name start_time end_time duration log_file; do
                     if [[ "$status" == "SUCCESS" ]]; then
-                        echo "✓ $task_name ($duration) - Log: $log_file"
+                        echo "✅ $task_name ($duration) - 📄 Log: $log_file"
                         successful=$((successful + 1))
                     elif [[ "$status" == "FAILED" ]]; then
-                        echo "✗ $task_name ($duration) - Log: $log_file"
+                        echo "❌ $task_name ($duration) - 📄 Log: $log_file"
                         failed=$((failed + 1))
                     fi
                 done < "$result_file"
@@ -730,7 +750,7 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         done
         
         echo ""
-        echo "All parallel tasks completed."
+        echo "🎉 All parallel tasks completed!"
         
         # Cleanup temp directory
         rm -rf "$temp_dir"
@@ -744,22 +764,22 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
     execution_start_timestamp=$(format_timestamp)
     execution_start_time=$(date +%s)
     
-    echo "Starting task execution..."
-    echo "Execution started at: $execution_start_timestamp"
+    echo "🚀 Starting task execution..."
+    echo "🕰️  Execution started at: $execution_start_timestamp"
     if [[ "$SAVE_LOGS" == "true" ]]; then
-        echo "Logs will be saved to: $LOG_DIR/"
+        echo "📁 Logs will be saved to: $LOG_DIR/"
     else
-        echo "Output will be printed directly (no logs saved)"
+        echo "🖥️  Output will be printed directly (no logs saved)"
     fi
 
     SUCCESSFUL=0
     FAILED=0
 
     if [[ "$PARALLEL" == "true" ]]; then
-        echo "Running in parallel mode (max $MAX_JOBS concurrent repository groups)"
+        echo "🚀 Running in parallel mode (max $MAX_JOBS concurrent repository groups)"
         execute_parallel "${TASK_FILES[@]}"
     else
-        echo "Running in sequential mode"
+        echo "🔄 Running in sequential mode"
         for task_file in "${TASK_FILES[@]}"; do
             if run_task "$task_file"; then
                 SUCCESSFUL=$((SUCCESSFUL + 1))
@@ -776,25 +796,31 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
     formatted_total_duration=$(format_duration $total_duration)
 
     # Summary
-    echo "================================"
-    echo "Task Execution Summary:"
-    echo "  Started at: $execution_start_timestamp"
-    echo "  Finished at: $execution_end_timestamp"
-    echo "  Total duration: $formatted_total_duration"
-    echo "  Successful: $SUCCESSFUL"
-    echo "  Failed: $FAILED"
-    echo "  Total: ${#TASK_FILES[@]}"
-    echo "================================"
+    echo ""
+    echo "📊 ═══════════════════════════════════════════════════════════════════════════════════"
+    echo "📦 EXECUTION SUMMARY"
+    echo "═══════════════════════════════════════════════════════════════════════════════════"
+    echo "🕰️  Started at:    $execution_start_timestamp"
+    echo "🏁 Finished at:   $execution_end_timestamp"
+    echo "⏱️  Total duration: $formatted_total_duration"
+    echo "✅ Successful:    $SUCCESSFUL"
+    echo "❌ Failed:        $FAILED"
+    echo "📁 Total tasks:   ${#TASK_FILES[@]}"
+    echo "═══════════════════════════════════════════════════════════════════════════════════"
 
     if [[ $FAILED -gt 0 ]]; then
+        echo ""
         if [[ "$SAVE_LOGS" == "true" ]]; then
-            echo "Some tasks failed. Check logs in $LOG_DIR/ for details."
+            echo "⚠️  Some tasks failed. Check logs in $LOG_DIR/ for details."
         else
-            echo "Some tasks failed. See output above for details."
+            echo "⚠️  Some tasks failed. See output above for details."
         fi
+        echo "❌ Execution completed with failures."
         exit 1
     else
-        echo "All tasks completed successfully!"
+        echo ""
+        echo "🎉 All tasks completed successfully!"
+        echo "✅ Execution completed successfully."
         exit 0
     fi
 fi
