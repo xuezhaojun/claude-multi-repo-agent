@@ -32,13 +32,75 @@ format_duration() {
     fi
 }
 
+# Function to read JSON config
+read_config() {
+    local config_file="$1"
+    local key="$2"
+    local default_value="$3"
+    
+    if [[ -f "$config_file" ]]; then
+        if command -v jq &> /dev/null; then
+            # Use jq for proper JSON parsing
+            local value=$(jq -r ".$key // \"$default_value\"" "$config_file" 2>/dev/null)
+            if [[ "$value" != "null" && "$value" != "" ]]; then
+                echo "$value"
+            else
+                echo "$default_value"
+            fi
+        else
+            # Fallback: Basic parsing without jq
+            local value=$(grep "\"$key\"" "$config_file" 2>/dev/null | sed 's/.*"'$key'"[[:space:]]*:[[:space:]]*\([^,}]*\).*/\1/' | sed 's/[",]//g' | xargs)
+            if [[ -n "$value" ]]; then
+                echo "$value"
+            else
+                echo "$default_value"
+            fi
+        fi
+    else
+        echo "$default_value"
+    fi
+}
+
+# Function to load configuration from files
+load_config() {
+    local bundle_path="$1"
+    
+    # Set defaults
+    CONFIG_PARALLEL="false"
+    CONFIG_MAX_JOBS="4"
+    CONFIG_SAVE_LOGS="false"
+    CONFIG_GENERATE_ONLY="false"
+    CONFIG_RUN_ONLY="false"
+    CONFIG_GUIDE_FILE="GUIDE.md"
+    
+    # Read root config.json if it exists
+    if [[ -f "config.json" ]]; then
+        CONFIG_PARALLEL=$(read_config "config.json" "parallel" "$CONFIG_PARALLEL")
+        CONFIG_MAX_JOBS=$(read_config "config.json" "maxJobs" "$CONFIG_MAX_JOBS")
+        CONFIG_SAVE_LOGS=$(read_config "config.json" "saveLogs" "$CONFIG_SAVE_LOGS")
+        CONFIG_GENERATE_ONLY=$(read_config "config.json" "generateOnly" "$CONFIG_GENERATE_ONLY")
+        CONFIG_RUN_ONLY=$(read_config "config.json" "runOnly" "$CONFIG_RUN_ONLY")
+        CONFIG_GUIDE_FILE=$(read_config "config.json" "guideFile" "$CONFIG_GUIDE_FILE")
+    fi
+    
+    # Read bundle config.json if bundle is specified and config exists
+    if [[ -n "$bundle_path" && -f "$bundle_path/config.json" ]]; then
+        CONFIG_PARALLEL=$(read_config "$bundle_path/config.json" "parallel" "$CONFIG_PARALLEL")
+        CONFIG_MAX_JOBS=$(read_config "$bundle_path/config.json" "maxJobs" "$CONFIG_MAX_JOBS")
+        CONFIG_SAVE_LOGS=$(read_config "$bundle_path/config.json" "saveLogs" "$CONFIG_SAVE_LOGS")
+        CONFIG_GENERATE_ONLY=$(read_config "$bundle_path/config.json" "generateOnly" "$CONFIG_GENERATE_ONLY")
+        CONFIG_RUN_ONLY=$(read_config "$bundle_path/config.json" "runOnly" "$CONFIG_RUN_ONLY")
+        CONFIG_GUIDE_FILE=$(read_config "$bundle_path/config.json" "guideFile" "$CONFIG_GUIDE_FILE")
+    fi
+}
+
 # Function to show usage
 show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
     echo "  --bundle PATH       Specify bundle directory to read target.yml and task.md from"
-    echo "  --guide-file FILE   Specify custom guide file (default: GUIDE.md)"
+    echo "  --guide-file FILE   Specify custom guide file (default: GUIDE.md or from config)"
     echo "  --generate-only     Only generate task files, don't run them"
     echo "  --run-only         Only run existing task files (skip generation)"
     echo "  --save-logs        Save Claude CLI output to log files (when running)"
@@ -46,20 +108,26 @@ show_usage() {
     echo "  --max-jobs NUM     Maximum number of parallel jobs (default: 4, only with --parallel)"
     echo "  --help, -h         Show this help message"
     echo ""
+    echo "Configuration files:"
+    echo "  config.json        Root configuration file (applies to all executions)"
+    echo "  bundle/config.json Bundle-specific configuration (overrides root config)"
+    echo ""
+    echo "Priority: Command line options > Bundle config > Root config > Defaults"
     echo "Default behavior: Generate task files and then run them sequentially"
     echo "Bundle mode: When --bundle is specified, reads target.yml and task.md from the bundle directory"
     echo "Parallel mode: Tasks from the same repository are still executed sequentially to avoid conflicts"
 }
 
-# Parse command line arguments
-GENERATE_ONLY=false
-RUN_ONLY=false
-SAVE_LOGS=false
-PARALLEL=false
-MAX_JOBS=4
-GUIDE_FILE="GUIDE.md"
+# Initialize variables for command line parsing
 BUNDLE_PATH=""
+CLI_GENERATE_ONLY=""
+CLI_RUN_ONLY=""
+CLI_SAVE_LOGS=""
+CLI_PARALLEL=""
+CLI_MAX_JOBS=""
+CLI_GUIDE_FILE=""
 
+# Parse command line arguments first to get bundle path
 while [[ $# -gt 0 ]]; do
     case $1 in
         --bundle)
@@ -67,27 +135,27 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --guide-file)
-            GUIDE_FILE="$2"
+            CLI_GUIDE_FILE="$2"
             shift 2
             ;;
         --generate-only)
-            GENERATE_ONLY=true
+            CLI_GENERATE_ONLY=true
             shift
             ;;
         --run-only)
-            RUN_ONLY=true
+            CLI_RUN_ONLY=true
             shift
             ;;
         --save-logs)
-            SAVE_LOGS=true
+            CLI_SAVE_LOGS=true
             shift
             ;;
         --parallel)
-            PARALLEL=true
+            CLI_PARALLEL=true
             shift
             ;;
         --max-jobs)
-            MAX_JOBS="$2"
+            CLI_MAX_JOBS="$2"
             shift 2
             ;;
         --help|-h)
@@ -101,6 +169,17 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Load configuration from files
+load_config "$BUNDLE_PATH"
+
+# Apply configuration with priority: CLI > Bundle Config > Root Config > Defaults
+GENERATE_ONLY="${CLI_GENERATE_ONLY:-$CONFIG_GENERATE_ONLY}"
+RUN_ONLY="${CLI_RUN_ONLY:-$CONFIG_RUN_ONLY}"
+SAVE_LOGS="${CLI_SAVE_LOGS:-$CONFIG_SAVE_LOGS}"
+PARALLEL="${CLI_PARALLEL:-$CONFIG_PARALLEL}"
+MAX_JOBS="${CLI_MAX_JOBS:-$CONFIG_MAX_JOBS}"
+GUIDE_FILE="${CLI_GUIDE_FILE:-$CONFIG_GUIDE_FILE}"
 
 # Validate conflicting options
 if [[ "$GENERATE_ONLY" == "true" && "$RUN_ONLY" == "true" ]]; then

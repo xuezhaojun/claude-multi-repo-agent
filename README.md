@@ -20,6 +20,7 @@ A powerful automation toolkit that leverages Claude Code to execute tasks across
 - [Claude Code CLI](https://claude.ai/code) installed and authenticated
 - [GitHub CLI (`gh`)](https://cli.github.com/) installed and authenticated
 - `yq` (optional, for better YAML parsing)
+- `jq` (optional, for better JSON configuration parsing)
 
 ### 1. Clone and Setup
 
@@ -69,19 +70,22 @@ mkdir -p bundles/security-patch
 mkdir -p bundles/docs-sync
 ```
 
-Each bundle contains its own `target.yml` and `task.md`:
+Each bundle contains its own `target.yml`, `task.md`, and optionally `config.json`:
 
 ```
 bundles/
 ├── upgrade-deps/
 │   ├── target.yml      # Repositories for dependency updates
-│   └── task.md         # Dependency upgrade instructions
+│   ├── task.md         # Dependency upgrade instructions
+│   └── config.json     # Bundle-specific configuration (optional)
 ├── security-patch/
 │   ├── target.yml      # Security-critical repositories
-│   └── task.md         # Security patch tasks
+│   ├── task.md         # Security patch tasks
+│   └── config.json     # Bundle-specific configuration (optional)
 └── docs-sync/
     ├── target.yml      # Documentation repositories
-    └── task.md         # Documentation sync tasks
+    ├── task.md         # Documentation sync tasks
+    └── config.json     # Bundle-specific configuration (optional)
 ```
 
 #### `GUIDE.md` - Task execution guidelines (always in root)
@@ -139,6 +143,81 @@ Users can customize the entire workflow by specifying their own guide file.
 ./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --parallel --max-jobs 2 --guide-file guides/company-workflow.md
 ```
 
+## ⚙️ Configuration System
+
+The tool supports JSON configuration files to set default behavior and reduce the need for command line arguments.
+
+### Configuration Files
+
+1. **Root Configuration** (`config.json`): Global defaults for all executions
+2. **Bundle Configuration** (`bundles/scenario/config.json`): Bundle-specific overrides
+
+### Configuration Schema
+
+```json
+{
+  "parallel": false,
+  "maxJobs": 4,
+  "saveLogs": false,
+  "generateOnly": false,
+  "runOnly": false,
+  "guideFile": "GUIDE.md"
+}
+```
+
+### Configuration Priority
+
+Settings are applied in this priority order (highest to lowest):
+
+1. **Command line arguments** (e.g., `--parallel`, `--max-jobs 8`)
+2. **Bundle-specific config.json** (when using `--bundle`)
+3. **Root config.json**
+4. **Built-in defaults**
+
+### Configuration Examples
+
+#### Root Configuration
+Create `config.json` in the project root:
+
+```json
+{
+  "parallel": true,
+  "maxJobs": 2,
+  "saveLogs": true,
+  "guideFile": "GUIDE.md"
+}
+```
+
+#### Bundle-Specific Configuration
+Create `config.json` in any bundle directory:
+
+```json
+{
+  "maxJobs": 8,
+  "generateOnly": true
+}
+```
+
+#### Usage with Configuration
+
+```bash
+# Uses root config.json defaults
+./gen-and-run-tasks.sh
+
+# Uses bundle config + root config for unspecified options
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps
+
+# Command line overrides any config file setting
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --max-jobs 1 --no-parallel
+```
+
+### Benefits
+
+- **Consistent Defaults**: Set team-wide standards in root config
+- **Bundle-Specific Settings**: Each bundle can have optimal settings
+- **Reduced CLI Verbosity**: No need to repeat common options
+- **Flexible Override**: Command line still takes highest priority
+
 ## 📋 Command Options
 
 | Option | Description |
@@ -159,18 +238,22 @@ claude-multi-repo-agent/
 ├── gen-and-run-tasks.sh    # Main automation script
 ├── target.yml              # Repository and branch configuration (root mode)
 ├── task.md                 # Task description (root mode)
+├── config.json             # Global configuration (optional)
 ├── GUIDE.md                # Default workflow guidelines
 ├── CLAUDE.md               # Project instructions for Claude
-├── bundles/                # Bundle scenarios (NEW)
+├── bundles/                # Bundle scenarios
 │   ├── upgrade-deps/
 │   │   ├── target.yml      # Dependency update repositories
-│   │   └── task.md         # Dependency update tasks
+│   │   ├── task.md         # Dependency update tasks
+│   │   └── config.json     # Bundle-specific config (optional)
 │   ├── security-patch/
 │   │   ├── target.yml      # Security repositories
-│   │   └── task.md         # Security patch tasks
+│   │   ├── task.md         # Security patch tasks
+│   │   └── config.json     # Bundle-specific config (optional)
 │   └── docs-sync/
 │       ├── target.yml      # Documentation repositories
-│       └── task.md         # Documentation sync tasks
+│       ├── task.md         # Documentation sync tasks
+│       └── config.json     # Bundle-specific config (optional)
 ├── guides/                 # Optional custom guide files
 │   ├── company-workflow.md
 │   └── minimal.md
@@ -317,12 +400,21 @@ Update all projects to use the latest LTS versions of their runtime dependencies
 - Ensure all tests pass
 ```
 
+```json
+// bundles/upgrade-deps/config.json (optional)
+{
+  "parallel": true,
+  "maxJobs": 3,
+  "saveLogs": true
+}
+```
+
 ```bash
-# Execute the bundle
+# Execute the bundle (uses config.json settings)
 ./gen-and-run-tasks.sh --bundle bundles/upgrade-deps
 
-# Execute in parallel for faster processing
-./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --parallel
+# Execute with CLI override
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --max-jobs 1
 ```
 
 ### Example 2: Security Patch Bundle
@@ -341,11 +433,21 @@ target:
 Apply critical security updates to all affected repositories.
 ```
 
-```bash
-# Execute with logging for audit trail
-./gen-and-run-tasks.sh --bundle bundles/security-patch --save-logs
+```json
+// bundles/security-patch/config.json (optional)
+{
+  "parallel": false,
+  "maxJobs": 1,
+  "saveLogs": true,
+  "generateOnly": false
+}
+```
 
-# Execute in parallel with custom concurrency
+```bash
+# Execute with bundle config (single-threaded for security patches)
+./gen-and-run-tasks.sh --bundle bundles/security-patch
+
+# Override for emergency parallel execution
 ./gen-and-run-tasks.sh --bundle bundles/security-patch --parallel --max-jobs 2
 ```
 
@@ -430,6 +532,16 @@ The tool includes built-in validation:
 11. **Use Parallel Execution**: Enable `--parallel` for faster processing of multiple repositories
 12. **Tune Concurrency**: Adjust `--max-jobs` based on system resources and API rate limits
 13. **Repository Safety**: Parallel mode automatically prevents same-repository conflicts by grouping tasks
+14. **Configuration Management**: 
+    - Use root `config.json` for team-wide defaults
+    - Create bundle-specific configs for optimal settings per scenario
+    - Commit configuration files to version control for consistency
+    - Test configurations with small repository sets first
+15. **Configuration Strategy**:
+    - Set conservative defaults in root config (e.g., `parallel: false`)
+    - Enable parallel execution in specific bundles where appropriate
+    - Use `generateOnly: true` in configs for review-first workflows
+    - Set appropriate `maxJobs` based on bundle complexity and risk level
 
 ## 🤝 Contributing
 
@@ -444,3 +556,10 @@ This tool is designed to be organization-agnostic and can work with any GitHub r
 - **Performance Optimization**: Use `--parallel` for large repository sets to significantly reduce execution time
 - **Resource Management**: Start with lower `--max-jobs` values and increase based on system performance and API limits
 - **Safety First**: Parallel mode intelligently groups tasks by repository to prevent Git conflicts while maximizing concurrency
+- **Configuration Hierarchy**: Set up a configuration strategy:
+  - Root `config.json` for team defaults
+  - Bundle configs for scenario-specific optimizations  
+  - CLI overrides for one-off adjustments
+- **Smart Defaults**: Use conservative settings in root config, enable aggressive optimizations in specific bundles
+- **Review Workflows**: Set `generateOnly: true` in bundle configs for critical operations requiring manual review
+- **Environment Tuning**: Adjust `maxJobs` per bundle based on repository complexity and change risk

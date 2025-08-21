@@ -114,11 +114,68 @@ The system automatically:
 - Sets up upstream remotes for PR workflows
 - Handles multiple organizations and repositories
 
+## Configuration System
+
+The system supports JSON-based configuration files to set default behavior:
+
+### Configuration Files
+
+1. **Root Configuration** (`config.json`): Default settings for all executions
+2. **Bundle Configuration** (`bundles/scenario/config.json`): Bundle-specific overrides
+
+### Configuration Schema
+
+```json
+{
+  "parallel": false,
+  "maxJobs": 4,
+  "saveLogs": false,
+  "generateOnly": false,
+  "runOnly": false,
+  "guideFile": "GUIDE.md"
+}
+```
+
+### Configuration Priority
+
+The system applies configuration in this priority order:
+1. **Command line options** (highest priority)
+2. **Bundle-specific config.json** 
+3. **Root config.json**
+4. **Built-in defaults** (lowest priority)
+
+### Examples
+
+**Root Configuration** (`config.json`):
+```json
+{
+  "parallel": true,
+  "maxJobs": 2,
+  "saveLogs": true,
+  "guideFile": "GUIDE.md"
+}
+```
+
+**Bundle-specific Override** (`bundles/security-patch/config.json`):
+```json
+{
+  "maxJobs": 8,
+  "generateOnly": true
+}
+```
+
+With these configs, running `./gen-and-run-tasks.sh --bundle bundles/security-patch` would use:
+- `maxJobs: 8` (from bundle config)
+- `generateOnly: true` (from bundle config)
+- `parallel: true` and `saveLogs: true` (from root config)
+- Command line options would override any of these
+
 ## Requirements
 
 - Claude Code CLI (authenticated)
 - GitHub CLI `gh` (authenticated)
 - `yq` (optional, for better YAML parsing)
+- `jq` (optional, for better JSON parsing)
 - Bash shell environment
 
 ## Bundle Examples
