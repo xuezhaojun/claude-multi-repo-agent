@@ -42,16 +42,21 @@ show_usage() {
     echo "  --generate-only     Only generate task files, don't run them"
     echo "  --run-only         Only run existing task files (skip generation)"
     echo "  --save-logs        Save Claude CLI output to log files (when running)"
+    echo "  --parallel         Execute tasks in parallel (automatically enables --save-logs)"
+    echo "  --max-jobs NUM     Maximum number of parallel jobs (default: 4, only with --parallel)"
     echo "  --help, -h         Show this help message"
     echo ""
-    echo "Default behavior: Generate task files and then run them"
+    echo "Default behavior: Generate task files and then run them sequentially"
     echo "Bundle mode: When --bundle is specified, reads target.yml and task.md from the bundle directory"
+    echo "Parallel mode: Tasks from the same repository are still executed sequentially to avoid conflicts"
 }
 
 # Parse command line arguments
 GENERATE_ONLY=false
 RUN_ONLY=false
 SAVE_LOGS=false
+PARALLEL=false
+MAX_JOBS=4
 GUIDE_FILE="GUIDE.md"
 BUNDLE_PATH=""
 
@@ -77,6 +82,14 @@ while [[ $# -gt 0 ]]; do
             SAVE_LOGS=true
             shift
             ;;
+        --parallel)
+            PARALLEL=true
+            shift
+            ;;
+        --max-jobs)
+            MAX_JOBS="$2"
+            shift 2
+            ;;
         --help|-h)
             show_usage
             exit 0
@@ -93,6 +106,19 @@ done
 if [[ "$GENERATE_ONLY" == "true" && "$RUN_ONLY" == "true" ]]; then
     echo "Error: --generate-only and --run-only cannot be used together"
     exit 1
+fi
+
+# Validate parallel options
+if [[ "$PARALLEL" == "true" ]]; then
+    # Force save logs when running in parallel to avoid output confusion
+    SAVE_LOGS=true
+    echo "Parallel mode enabled: automatically enabling log saving"
+    
+    # Validate max-jobs is a positive integer
+    if ! [[ "$MAX_JOBS" =~ ^[1-9][0-9]*$ ]]; then
+        echo "Error: --max-jobs must be a positive integer (got: $MAX_JOBS)"
+        exit 1
+    fi
 fi
 
 # Define file paths based on bundle configuration
@@ -429,6 +455,176 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         fi
     }
 
+    # Function to run a single task and write result to temp file (for parallel execution)
+    run_task_parallel() {
+        local task_file="$1"
+        local result_file="$2"
+        local task_name=$(basename "$task_file" .md)
+        local log_file="$LOG_DIR/${task_name}.log"
+        
+        local start_timestamp=$(format_timestamp)
+        local start_time=$(date +%s)
+        
+        # Write start info to result file
+        echo "STARTED|$task_name|$start_timestamp" > "$result_file"
+        
+        local exit_code=0
+        
+        # Always save logs in parallel mode
+        if cat "$task_file" | claude -p "Execute this task" --verbose --output-format text --dangerously-skip-permissions > "$log_file" 2>&1; then
+            exit_code=0
+        else
+            exit_code=1
+        fi
+        
+        local end_timestamp=$(format_timestamp)
+        local end_time=$(date +%s)
+        local duration=$(calculate_duration $start_time $end_time)
+        local formatted_duration=$(format_duration $duration)
+        
+        # Write final result to result file
+        if [[ $exit_code -eq 0 ]]; then
+            echo "SUCCESS|$task_name|$start_timestamp|$end_timestamp|$formatted_duration|$log_file" > "$result_file"
+        else
+            echo "FAILED|$task_name|$start_timestamp|$end_timestamp|$formatted_duration|$log_file" > "$result_file"
+        fi
+        
+        return $exit_code
+    }
+
+    # Function to group tasks by repository to avoid conflicts
+    group_tasks_by_repo() {
+        local tasks=("$@")
+        declare -A repo_groups
+        
+        for task_file in "${tasks[@]}"; do
+            # Extract repository name from task filename (format: 001_repo_branch.md)
+            local filename=$(basename "$task_file" .md)
+            local repo=$(echo "$filename" | sed 's/^[0-9]*_\([^_]*\)_.*$/\1/')
+            
+            if [[ -z "${repo_groups[$repo]}" ]]; then
+                repo_groups[$repo]="$task_file"
+            else
+                repo_groups[$repo]="${repo_groups[$repo]} $task_file"
+            fi
+        done
+        
+        # Output grouped tasks
+        for repo in "${!repo_groups[@]}"; do
+            echo "$repo:${repo_groups[$repo]}"
+        done
+    }
+
+    # Function to execute tasks in parallel mode
+    execute_parallel() {
+        local task_files=("$@")
+        local temp_dir=$(mktemp -d)
+        local job_count=0
+        local pids=()
+        local result_files=()
+        
+        echo "Parallel execution with max $MAX_JOBS concurrent jobs"
+        echo "Temporary directory: $temp_dir"
+        
+        # Group tasks by repository
+        local repo_groups=($(group_tasks_by_repo "${task_files[@]}"))
+        
+        echo "Found ${#repo_groups[@]} repository groups to process"
+        
+        for repo_group in "${repo_groups[@]}"; do
+            # Wait if we've reached max jobs
+            while [[ $job_count -ge $MAX_JOBS ]]; do
+                # Check for completed jobs
+                local new_pids=()
+                local new_result_files=()
+                for i in "${!pids[@]}"; do
+                    local pid="${pids[$i]}"
+                    local result_file="${result_files[$i]}"
+                    if ! kill -0 "$pid" 2>/dev/null; then
+                        # Job completed
+                        wait "$pid"
+                        job_count=$((job_count - 1))
+                        echo "Repository group completed (PID: $pid)"
+                    else
+                        # Job still running
+                        new_pids+=("$pid")
+                        new_result_files+=("$result_file")
+                    fi
+                done
+                pids=("${new_pids[@]}")
+                result_files=("${new_result_files[@]}")
+                
+                if [[ $job_count -ge $MAX_JOBS ]]; then
+                    sleep 1
+                fi
+            done
+            
+            # Extract repo name and tasks from group
+            local repo=$(echo "$repo_group" | cut -d: -f1)
+            local tasks_str=$(echo "$repo_group" | cut -d: -f2-)
+            read -a repo_tasks <<< "$tasks_str"
+            
+            echo "Starting repository group: $repo (${#repo_tasks[@]} tasks)"
+            
+            # Create result file for this repository group
+            local result_file="$temp_dir/result_${repo}_$$"
+            result_files+=("$result_file")
+            
+            # Start background job for this repository group (tasks run sequentially within group)
+            (
+                for task_file in ${repo_tasks[@]}; do
+                    local task_result_file="$temp_dir/task_$(basename "$task_file" .md)_$$"
+                    run_task_parallel "$task_file" "$task_result_file"
+                    cat "$task_result_file" >> "$result_file"
+                done
+            ) &
+            
+            local pid=$!
+            pids+=("$pid")
+            job_count=$((job_count + 1))
+            
+            echo "Started repository group: $repo (PID: $pid)"
+        done
+        
+        # Wait for all remaining jobs to complete
+        echo "Waiting for all repository groups to complete..."
+        for pid in "${pids[@]}"; do
+            wait "$pid"
+            echo "Repository group completed (PID: $pid)"
+        done
+        
+        echo "All repository groups completed"
+        
+        # Process results
+        local successful=0
+        local failed=0
+        
+        echo ""
+        echo "Task Results:"
+        echo "============="
+        
+        for result_file in "${result_files[@]}"; do
+            if [[ -f "$result_file" ]]; then
+                while IFS='|' read -r status task_name start_time end_time duration log_file; do
+                    if [[ "$status" == "SUCCESS" ]]; then
+                        echo "✓ $task_name ($duration) - Log: $log_file"
+                        successful=$((successful + 1))
+                    elif [[ "$status" == "FAILED" ]]; then
+                        echo "✗ $task_name ($duration) - Log: $log_file"
+                        failed=$((failed + 1))
+                    fi
+                done < "$result_file"
+            fi
+        done
+        
+        # Cleanup temp directory
+        rm -rf "$temp_dir"
+        
+        # Return results
+        SUCCESSFUL=$successful
+        FAILED=$failed
+    }
+
     # Process all tasks
     execution_start_timestamp=$(format_timestamp)
     execution_start_time=$(date +%s)
@@ -444,14 +640,20 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
     SUCCESSFUL=0
     FAILED=0
 
-    for task_file in "${TASK_FILES[@]}"; do
-        if run_task "$task_file"; then
-            SUCCESSFUL=$((SUCCESSFUL + 1))
-        else
-            FAILED=$((FAILED + 1))
-        fi
-        echo ""
-    done
+    if [[ "$PARALLEL" == "true" ]]; then
+        echo "Running in parallel mode (max $MAX_JOBS concurrent repository groups)"
+        execute_parallel "${TASK_FILES[@]}"
+    else
+        echo "Running in sequential mode"
+        for task_file in "${TASK_FILES[@]}"; do
+            if run_task "$task_file"; then
+                SUCCESSFUL=$((SUCCESSFUL + 1))
+            else
+                FAILED=$((FAILED + 1))
+            fi
+            echo ""
+        done
+    fi
 
     execution_end_timestamp=$(format_timestamp)
     execution_end_time=$(date +%s)

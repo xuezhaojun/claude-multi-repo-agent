@@ -6,6 +6,7 @@ This project provides an automated system for executing Claude Code tasks across
 
 **Claude Multi-Repo Agent** is a universal automation toolkit that:
 - Executes tasks across multiple GitHub repositories and branches
+- **Supports parallel execution** for faster processing across repository groups
 - Automatically manages repository forks and clones
 - Organizes task scenarios using predefined bundles
 - Generates individual task files for each target repository-branch combination
@@ -59,8 +60,17 @@ Each generated task file contains:
 
 1. **Repository Setup**: Automatically forks and clones repositories if not present in workspace
 2. **Task Generation**: Creates individual task files for each org/repo/branch combination
-3. **Task Execution**: Runs Claude Code on each task file
+3. **Task Execution**: Runs Claude Code on each task file (sequential or parallel)
+   - **Sequential Mode**: Tasks execute one by one (default)
+   - **Parallel Mode**: Repository groups execute concurrently for faster processing
 4. **Progress Tracking**: Provides execution summaries and optional logging
+
+### Parallel Execution Strategy
+
+- **Repository-Level Concurrency**: Different repositories can execute in parallel
+- **Branch-Level Safety**: Tasks for the same repository execute sequentially to avoid conflicts
+- **Smart Grouping**: Automatically groups tasks by repository to prevent Git conflicts
+- **Configurable Limits**: Control maximum concurrent jobs with `--max-jobs`
 
 ## Usage Patterns
 
@@ -68,6 +78,7 @@ Each generated task file contains:
 ```bash
 ./gen-and-run-tasks.sh              # Generate and execute all tasks
 ./gen-and-run-tasks.sh --save-logs  # With logging
+./gen-and-run-tasks.sh --parallel   # Execute tasks in parallel (auto-enables logging)
 ```
 
 ### Bundle Workflow (Recommended)
@@ -75,6 +86,10 @@ Each generated task file contains:
 ./gen-and-run-tasks.sh --bundle bundles/upgrade-deps     # Execute dependency update bundle
 ./gen-and-run-tasks.sh --bundle bundles/security-patch  # Execute security patch bundle
 ./gen-and-run-tasks.sh --bundle bundles/docs-sync       # Execute documentation sync bundle
+
+# Parallel execution for faster processing
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --parallel
+./gen-and-run-tasks.sh --bundle bundles/security-patch --parallel --max-jobs 2
 ```
 
 ### Advanced Options
@@ -83,6 +98,11 @@ Each generated task file contains:
 ./gen-and-run-tasks.sh --run-only                         # Execute existing tasks
 ./gen-and-run-tasks.sh --bundle bundles/scenario --generate-only  # Generate from bundle only
 ./gen-and-run-tasks.sh --bundle bundles/scenario --guide-file custom-guide.md  # Bundle + custom guide
+
+# Parallel execution options
+./gen-and-run-tasks.sh --parallel                         # Default 4 concurrent repository groups
+./gen-and-run-tasks.sh --parallel --max-jobs 8           # Custom concurrency level
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --parallel --max-jobs 2  # Bundle + parallel
 ```
 
 ## Git Integration

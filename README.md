@@ -4,13 +4,14 @@ A powerful automation toolkit that leverages Claude Code to execute tasks across
 
 ## ✨ Key Features
 
-- 🔄 **Multi-Repository Processing**: Execute tasks across multiple repositories in parallel
+- 🔄 **Multi-Repository Processing**: Execute tasks across multiple repositories
+- ⚡ **Parallel Execution**: Speed up processing with concurrent repository groups
 - 🍴 **Smart Fork Management**: Automatically forks and clones repositories if needed
 - 🎯 **Flexible Targeting**: Configure organizations, repositories, and branches with ease
 - 📦 **Bundle Support**: Organize task scenarios with predefined target/task combinations
 - 🤖 **Claude-Powered**: Leverages Claude Code for intelligent task execution
 - 📊 **Progress Tracking**: Comprehensive logging and execution summaries
-- ⚡ **One-Click Automation**: Generate and run tasks with a single command
+- 🚀 **One-Click Automation**: Generate and run tasks with a single command
 
 ## 🚀 Quick Start
 
@@ -100,6 +101,9 @@ Users can customize the entire workflow by specifying their own guide file.
 # All-in-one execution
 ./gen-and-run-tasks.sh
 
+# Parallel execution for faster processing
+./gen-and-run-tasks.sh --parallel
+
 # Step-by-step execution
 ./gen-and-run-tasks.sh --generate-only
 ./gen-and-run-tasks.sh --run-only
@@ -110,10 +114,13 @@ Users can customize the entire workflow by specifying their own guide file.
 # Execute specific bundle
 ./gen-and-run-tasks.sh --bundle bundles/upgrade-deps
 
+# Execute bundle in parallel (faster)
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --parallel
+
 # Generate tasks from bundle only
 ./gen-and-run-tasks.sh --bundle bundles/security-patch --generate-only
 
-# Save execution logs
+# Save execution logs (automatically enabled in parallel mode)
 ./gen-and-run-tasks.sh --bundle bundles/docs-sync --save-logs
 ```
 
@@ -124,6 +131,12 @@ Users can customize the entire workflow by specifying their own guide file.
 
 # Combine bundle with custom guide
 ./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --guide-file guides/company-workflow.md
+
+# Parallel execution with custom concurrency
+./gen-and-run-tasks.sh --parallel --max-jobs 8
+
+# Combine all features
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --parallel --max-jobs 2 --guide-file guides/company-workflow.md
 ```
 
 ## 📋 Command Options
@@ -135,6 +148,8 @@ Users can customize the entire workflow by specifying their own guide file.
 | `--generate-only` | Only generate task files, don't execute them |
 | `--run-only` | Execute existing task files without regenerating |
 | `--save-logs` | Save Claude CLI output to log files |
+| `--parallel` | Execute tasks in parallel (automatically enables --save-logs) |
+| `--max-jobs NUM` | Maximum number of parallel jobs (default: 4, only with --parallel) |
 | `--help, -h` | Show help message |
 
 ## 📁 Project Structure
@@ -305,6 +320,9 @@ Update all projects to use the latest LTS versions of their runtime dependencies
 ```bash
 # Execute the bundle
 ./gen-and-run-tasks.sh --bundle bundles/upgrade-deps
+
+# Execute in parallel for faster processing
+./gen-and-run-tasks.sh --bundle bundles/upgrade-deps --parallel
 ```
 
 ### Example 2: Security Patch Bundle
@@ -326,6 +344,9 @@ Apply critical security updates to all affected repositories.
 ```bash
 # Execute with logging for audit trail
 ./gen-and-run-tasks.sh --bundle bundles/security-patch --save-logs
+
+# Execute in parallel with custom concurrency
+./gen-and-run-tasks.sh --bundle bundles/security-patch --parallel --max-jobs 2
 ```
 
 ### Example 3: Documentation Sync Bundle
@@ -379,6 +400,9 @@ Run in automated environments:
 ```bash
 # Non-interactive mode with logging
 ./gen-and-run-tasks.sh --save-logs
+
+# Parallel execution for CI/CD (faster)
+./gen-and-run-tasks.sh --parallel --max-jobs 6
 ```
 
 ### Filtering and Validation
@@ -403,6 +427,9 @@ The tool includes built-in validation:
 8. **Test Bundles**: Test new bundles with a small repository set before full deployment
 9. **Validate Custom Guides**: When using custom guide files, ensure they provide complete automation instructions equivalent to the default guide
 10. **Test Guide Automation**: Verify custom guides work with a test repository before applying to multiple targets
+11. **Use Parallel Execution**: Enable `--parallel` for faster processing of multiple repositories
+12. **Tune Concurrency**: Adjust `--max-jobs` based on system resources and API rate limits
+13. **Repository Safety**: Parallel mode automatically prevents same-repository conflicts by grouping tasks
 
 ## 🤝 Contributing
 
@@ -414,3 +441,6 @@ This tool is designed to be organization-agnostic and can work with any GitHub r
 - **Bundle Organization**: Create bundles for different scenarios (e.g., `bundles/monthly-updates/`, `bundles/security-patches/`) to streamline recurring tasks
 - **Team Sharing**: Commit bundle configurations to enable team members to run the same task scenarios consistently  
 - **Task Automation**: Use this tool for routine maintenance like dependency updates, documentation syncing, configuration standardization, and compliance checks across your entire repository ecosystem
+- **Performance Optimization**: Use `--parallel` for large repository sets to significantly reduce execution time
+- **Resource Management**: Start with lower `--max-jobs` values and increase based on system performance and API limits
+- **Safety First**: Parallel mode intelligently groups tasks by repository to prevent Git conflicts while maximizing concurrency
