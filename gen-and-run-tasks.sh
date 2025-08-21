@@ -217,9 +217,16 @@ if [[ -n "$BUNDLE_PATH" ]]; then
     
     TARGET_FILE="$BUNDLE_PATH/target.yml"
     TASK_FILE="$BUNDLE_PATH/task.md"
-    # GUIDE_FILE always uses default or user-specified path, not from bundle
+    
+    # Check if bundle has its own GUIDE.md, otherwise use default or user-specified path
+    if [[ -z "$CLI_GUIDE_FILE" && -f "$BUNDLE_PATH/GUIDE.md" ]]; then
+        GUIDE_FILE="$BUNDLE_PATH/GUIDE.md"
+    fi
     
     echo "📦 Using bundle: $BUNDLE_PATH"
+    if [[ -f "$BUNDLE_PATH/GUIDE.md" && -z "$CLI_GUIDE_FILE" ]]; then
+        echo "📋 Using bundle-specific guide: $BUNDLE_PATH/GUIDE.md"
+    fi
 else
     TARGET_FILE="target.yml"
     TASK_FILE="task.md"

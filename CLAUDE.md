@@ -24,6 +24,7 @@ This project provides an automated system for executing Claude Code tasks across
 - `bundles/`: Directory containing task scenario bundles
   - `bundles/scenario-name/target.yml`: Bundle-specific repository configuration
   - `bundles/scenario-name/task.md`: Bundle-specific task description
+  - `bundles/scenario-name/GUIDE.md`: Bundle-specific workflow instructions (optional)
 - Examples: `bundles/upgrade-deps/`, `bundles/security-patch/`, `bundles/docs-sync/`
 
 ### Directory Structure
@@ -47,13 +48,15 @@ Each bundle is a directory containing:
 ```
 bundles/scenario-name/
 ├── target.yml    # Bundle-specific repository and branch configuration
-└── task.md       # Bundle-specific task description and requirements
+├── task.md       # Bundle-specific task description and requirements
+├── GUIDE.md      # Bundle-specific workflow instructions (optional)
+└── config.json   # Bundle-specific configuration overrides (optional)
 ```
 
 ### Task File Template
 Each generated task file contains:
 - Repository metadata (org, repo, branch, workspace path)
-- Workflow guide (from GUIDE.md - always from root)
+- Workflow guide (from GUIDE.md - bundle-specific if available, otherwise root)
 - Task description (from task.md - either root or bundle)
 
 ## Automation Workflow
@@ -122,6 +125,14 @@ The system supports JSON-based configuration files to set default behavior:
 
 1. **Root Configuration** (`config.json`): Default settings for all executions
 2. **Bundle Configuration** (`bundles/scenario/config.json`): Bundle-specific overrides
+
+### Bundle Files
+
+Bundles can include any combination of these files:
+- `target.yml` (required): Repository and branch configuration
+- `task.md` (required): Task description and requirements
+- `GUIDE.md` (optional): Bundle-specific workflow instructions
+- `config.json` (optional): Bundle-specific configuration overrides
 
 ### Configuration Schema
 

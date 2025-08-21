@@ -70,25 +70,30 @@ mkdir -p bundles/security-patch
 mkdir -p bundles/docs-sync
 ```
 
-Each bundle contains its own `target.yml`, `task.md`, and optionally `config.json`:
+Each bundle contains its own `target.yml`, `task.md`, and optionally `GUIDE.md` and `config.json`:
 
 ```
 bundles/
 ├── upgrade-deps/
 │   ├── target.yml      # Repositories for dependency updates
 │   ├── task.md         # Dependency upgrade instructions
+│   ├── GUIDE.md        # Bundle-specific workflow instructions (optional)
 │   └── config.json     # Bundle-specific configuration (optional)
 ├── security-patch/
 │   ├── target.yml      # Security-critical repositories
 │   ├── task.md         # Security patch tasks
+│   ├── GUIDE.md        # Security-specific workflow (optional)
 │   └── config.json     # Bundle-specific configuration (optional)
 └── docs-sync/
     ├── target.yml      # Documentation repositories
     ├── task.md         # Documentation sync tasks
+    ├── GUIDE.md        # Documentation workflow (optional)
     └── config.json     # Bundle-specific configuration (optional)
 ```
 
-#### `GUIDE.md` - Task execution guidelines (always in root)
+#### `GUIDE.md` - Task execution guidelines
+
+**Root GUIDE.md** (default for all bundles):
 ```markdown
 # Custom Workflow Guide
 
@@ -96,6 +101,14 @@ Provides standardized workflow instructions that guide how each task should be e
 Includes guidelines from feature development to PR submission.
 
 Users can customize the entire workflow by specifying their own guide file.
+```
+
+**Bundle-specific GUIDE.md** (optional, overrides root):
+```markdown
+# Bundle-Specific Workflow
+
+Custom workflow instructions tailored for this specific bundle scenario.
+Overrides the root GUIDE.md when present in the bundle directory.
 ```
 
 ### 3. Execute Tasks
@@ -239,20 +252,23 @@ claude-multi-repo-agent/
 ├── target.yml              # Repository and branch configuration (root mode)
 ├── task.md                 # Task description (root mode)
 ├── config.json             # Global configuration (optional)
-├── GUIDE.md                # Default workflow guidelines
+├── GUIDE.md                # Default workflow guidelines (used when bundles don't have their own)
 ├── CLAUDE.md               # Project instructions for Claude
 ├── bundles/                # Bundle scenarios
 │   ├── upgrade-deps/
 │   │   ├── target.yml      # Dependency update repositories
 │   │   ├── task.md         # Dependency update tasks
+│   │   ├── GUIDE.md        # Bundle-specific workflow (optional)
 │   │   └── config.json     # Bundle-specific config (optional)
 │   ├── security-patch/
 │   │   ├── target.yml      # Security repositories
 │   │   ├── task.md         # Security patch tasks
+│   │   ├── GUIDE.md        # Security-specific workflow (optional)
 │   │   └── config.json     # Bundle-specific config (optional)
 │   └── docs-sync/
 │       ├── target.yml      # Documentation repositories
 │       ├── task.md         # Documentation sync tasks
+│       ├── GUIDE.md        # Documentation workflow (optional)
 │       └── config.json     # Bundle-specific config (optional)
 ├── guides/                 # Optional custom guide files
 │   ├── company-workflow.md
@@ -274,7 +290,7 @@ claude-multi-repo-agent/
 
 ### Understanding Guide File Automation
 
-The guide file is a **core automation component** of this project. The default `GUIDE.md` contains comprehensive workflow instructions that enable fully automated repository operations:
+The guide file is a **core automation component** of this project. Guide files contain comprehensive workflow instructions that enable fully automated repository operations:
 
 - **Repository Management**: Automated fork creation, cloning, and upstream remote setup
 - **Branch Workflows**: Feature branch creation, checkout patterns, and Git operations
@@ -282,14 +298,34 @@ The guide file is a **core automation component** of this project. The default `
 - **Pull Request Automation**: Complete GitHub CLI integration for PR creation and submission
 - **Error Handling**: Robust failure recovery and continuation patterns
 
+### Guide File Priority
+
+The system uses guide files in this priority order:
+1. **Command line specified**: `--guide-file path/to/guide.md` (highest priority)
+2. **Bundle-specific**: `bundles/scenario/GUIDE.md` (if present in bundle)
+3. **Root default**: `GUIDE.md` (fallback)
+
 ### Default Guide (GUIDE.md)
 
-The included `GUIDE.md` provides a **production-ready automation framework** with:
+The included root `GUIDE.md` provides a **production-ready automation framework** with:
 - Complete Git workflow automation (stash, fetch, checkout, branch creation)
 - Signed commit requirements with proper formatting
 - GitHub CLI integration for upstream PR creation
 - Comprehensive error handling and project continuation logic
 - Code quality standards and English comment enforcement
+
+### Bundle-Specific Guides
+
+Bundles can include their own `GUIDE.md` files for scenario-specific workflows:
+
+```bash
+# Bundle uses its own GUIDE.md if present
+./gen-and-run-tasks.sh --bundle bundles/security-patch
+# Uses bundles/security-patch/GUIDE.md if it exists
+
+# Override bundle guide with custom file
+./gen-and-run-tasks.sh --bundle bundles/security-patch --guide-file guides/emergency-patch.md
+```
 
 ### Custom Guide Files
 
@@ -400,6 +436,16 @@ Update all projects to use the latest LTS versions of their runtime dependencies
 - Ensure all tests pass
 ```
 
+```markdown
+<!-- bundles/upgrade-deps/GUIDE.md (optional) -->
+# Dependency Update Workflow
+
+Specific instructions for dependency updates:
+- Check for breaking changes before updating
+- Run security audits after updates
+- Test thoroughly before creating PR
+```
+
 ```json
 // bundles/upgrade-deps/config.json (optional)
 {
@@ -431,6 +477,16 @@ target:
 <!-- bundles/security-patch/task.md -->
 # Apply Security Patches
 Apply critical security updates to all affected repositories.
+```
+
+```markdown
+<!-- bundles/security-patch/GUIDE.md (optional) -->
+# Security Patch Workflow
+
+Critical security update instructions:
+- Verify patch against security advisory
+- Test in isolated environment first
+- Create emergency PR with detailed security notes
 ```
 
 ```json
