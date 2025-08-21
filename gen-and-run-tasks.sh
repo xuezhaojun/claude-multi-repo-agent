@@ -541,11 +541,17 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         local task_name=$(basename "$task_file" .md)
         local log_file="$LOG_DIR/${task_name}.log"
         
+        # Ensure result file directory exists
+        mkdir -p "$(dirname "$result_file")" 2>/dev/null || true
+        
         local start_timestamp=$(format_timestamp)
         local start_time=$(date +%s)
         
-        # Write start info to result file
-        echo "STARTED|$task_name|$start_timestamp" > "$result_file"
+        # Write start info to result file with error handling
+        if ! echo "STARTED|$task_name|$start_timestamp" > "$result_file" 2>/dev/null; then
+            echo "ERROR: Cannot write to result file $result_file" >&2
+            return 1
+        fi
         
         local exit_code=0
         
@@ -561,11 +567,17 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         local duration=$(calculate_duration $start_time $end_time)
         local formatted_duration=$(format_duration $duration)
         
-        # Write final result to result file
+        # Write final result to result file with error handling
+        local result_line
         if [[ $exit_code -eq 0 ]]; then
-            echo "SUCCESS|$task_name|$start_timestamp|$end_timestamp|$formatted_duration|$log_file" > "$result_file"
+            result_line="SUCCESS|$task_name|$start_timestamp|$end_timestamp|$formatted_duration|$log_file"
         else
-            echo "FAILED|$task_name|$start_timestamp|$end_timestamp|$formatted_duration|$log_file" > "$result_file"
+            result_line="FAILED|$task_name|$start_timestamp|$end_timestamp|$formatted_duration|$log_file"
+        fi
+        
+        if ! echo "$result_line" > "$result_file" 2>/dev/null; then
+            echo "ERROR: Cannot write final result to $result_file" >&2
+            return 1
         fi
         
         return $exit_code
@@ -574,12 +586,24 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
     # Function to group tasks by repository to avoid conflicts
     group_tasks_by_repo() {
         local tasks=("$@")
-        declare -A repo_groups
+        
+        # Check if associative arrays are supported (bash 4.0+)
+        if [[ ${BASH_VERSINFO[0]} -ge 4 ]]; then
+            declare -A repo_groups
+        else
+            echo "Error: Bash 4.0+ required for parallel execution (associative arrays)" >&2
+            exit 1
+        fi
         
         for task_file in "${tasks[@]}"; do
             # Extract repository name from task filename (format: 001_repo_branch.md)
             local filename=$(basename "$task_file" .md)
             local repo=$(echo "$filename" | sed 's/^[0-9]*_\([^_]*\)_.*$/\1/')
+            
+            # Handle repository names with hyphens properly
+            if [[ "$filename" =~ ^[0-9]+_(.+)_[^_]+$ ]]; then
+                repo="${BASH_REMATCH[1]}"
+            fi
             
             if [[ -z "${repo_groups[$repo]}" ]]; then
                 repo_groups[$repo]="$task_file"
@@ -601,6 +625,9 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         local job_count=0
         local pids=()
         local result_files=()
+        
+        local parallel_start_time=$(date +%s)
+        local parallel_start_timestamp=$(format_timestamp)
         
         echo "Parallel execution with max $MAX_JOBS concurrent jobs"
         echo "Temporary directory: $temp_dir"
@@ -654,7 +681,13 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
                 for task_file in ${repo_tasks[@]}; do
                     local task_result_file="$temp_dir/task_$(basename "$task_file" .md)_$$"
                     run_task_parallel "$task_file" "$task_result_file"
-                    cat "$task_result_file" >> "$result_file"
+                    # Ensure the result file exists before trying to read it
+                    if [[ -f "$task_result_file" ]]; then
+                        cat "$task_result_file" >> "$result_file"
+                        rm -f "$task_result_file"  # Clean up individual task result file
+                    else
+                        echo "ERROR: Task result file not found: $task_result_file" >> "$result_file"
+                    fi
                 done
             ) &
             
@@ -695,6 +728,9 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
                 done < "$result_file"
             fi
         done
+        
+        echo ""
+        echo "All parallel tasks completed."
         
         # Cleanup temp directory
         rm -rf "$temp_dir"
