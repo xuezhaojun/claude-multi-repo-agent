@@ -20,3 +20,6 @@ bundles/
 task.md
 target.yml
 config.json
+
+# Override global gitignore to track CLAUDE.md
+!CLAUDE.md
