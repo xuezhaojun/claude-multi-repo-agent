@@ -813,22 +813,33 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         echo ""
         echo "📊 PARALLEL EXECUTION RESULTS"
         echo "════════════════════════════════════════"
+        echo "🔍 Expected ${#result_files[@]} result files to process"
 
         for result_file in "${result_files[@]}"; do
             if [[ -f "$result_file" ]]; then
+                echo "🔍 Processing result file: $result_file"
                 while IFS='|' read -r status task_name start_time end_time duration log_file; do
+                    # Skip empty lines and lines that don't match expected format
+                    if [[ -z "$status" || -z "$task_name" ]]; then
+                        continue
+                    fi
                     if [[ "$status" == "SUCCESS" ]]; then
                         echo "✅ $task_name ($duration) - 📄 Log: $log_file"
                         successful=$((successful + 1))
                     elif [[ "$status" == "FAILED" ]]; then
                         echo "❌ $task_name ($duration) - 📄 Log: $log_file"
                         failed=$((failed + 1))
+                    else
+                        echo "⚠️  Unknown status '$status' for task $task_name"
                     fi
                 done < "$result_file"
+            else
+                echo "❌ Result file not found: $result_file"
             fi
         done
 
         echo ""
+        echo "📊 Result summary: $successful successful, $failed failed (total processed: $((successful + failed)))"
         echo "🎉 All parallel tasks completed!"
 
         # Cleanup temp directory
