@@ -486,8 +486,10 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         exit 1
     fi
 
-    # Create logs directory only if saving logs
+    # Create logs directory only if saving logs (clean up existing logs first)
     if [[ "$SAVE_LOGS" == "true" ]]; then
+        echo "🧹 Cleaning up existing logs directory..."
+        rm -rf "$LOG_DIR"
         mkdir -p "$LOG_DIR"
     fi
 
