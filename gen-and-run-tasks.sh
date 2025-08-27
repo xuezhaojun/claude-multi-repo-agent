@@ -533,8 +533,11 @@ EOF
         done
     fi
 
+    # Count actual generated task files
+    GENERATED_COUNT=$(find "$OUTPUT_DIR" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+
     echo ""
-    echo "🎉 Successfully generated $((TASK_COUNTER - 1)) tasks in $OUTPUT_DIR directory"
+    echo "🎉 Successfully generated $GENERATED_COUNT tasks in $OUTPUT_DIR directory"
     echo "═══════════════════════════════════════════════════════════════════════════════════"
     echo ""
 fi
