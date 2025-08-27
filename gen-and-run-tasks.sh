@@ -1,8 +1,75 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Combined script to generate and run task files from target.yml and task.md
 
 set -e
+
+# Function to find the latest Bash version available
+find_latest_bash() {
+    local bash_paths=(
+        "/opt/homebrew/bin/bash"
+        "/usr/local/bin/bash"
+        "/bin/bash"
+        "/usr/bin/bash"
+    )
+    
+    local latest_version=""
+    local latest_path=""
+    local latest_major=0
+    local latest_minor=0
+    local latest_patch=0
+    
+    for bash_path in "${bash_paths[@]}"; do
+        if [[ -x "$bash_path" ]]; then
+            # Get version info from this bash executable
+            local version_info=$("$bash_path" --version 2>/dev/null | head -1)
+            if [[ $version_info =~ version\ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+                local major=${BASH_REMATCH[1]}
+                local minor=${BASH_REMATCH[2]}
+                local patch=${BASH_REMATCH[3]}
+                
+                # Compare versions (major.minor.patch)
+                if [[ $major -gt $latest_major ]] || \
+                   [[ $major -eq $latest_major && $minor -gt $latest_minor ]] || \
+                   [[ $major -eq $latest_major && $minor -eq $latest_minor && $patch -gt $latest_patch ]]; then
+                    latest_major=$major
+                    latest_minor=$minor
+                    latest_patch=$patch
+                    latest_version="$major.$minor.$patch"
+                    latest_path="$bash_path"
+                fi
+            fi
+        fi
+    done
+    
+    echo "$latest_path|$latest_version|$latest_major"
+}
+
+# Check if we're running with the latest Bash version
+bash_info=$(find_latest_bash)
+IFS='|' read -r latest_bash_path latest_version latest_major <<< "$bash_info"
+
+# Check if current bash is the latest and meets requirements
+current_bash_path=$(which bash 2>/dev/null || echo "/bin/bash")
+if [[ "$latest_bash_path" != "$current_bash_path" && -n "$latest_bash_path" ]]; then
+    echo "🔄 Found newer Bash version: $latest_version at $latest_bash_path"
+    echo "   Current: $BASH_VERSION at $current_bash_path"
+    echo "   Re-executing with newer version..."
+    exec "$latest_bash_path" "$0" "$@"
+fi
+
+# Check Bash version requirement
+if [[ ${BASH_VERSINFO[0]} -lt 4 ]]; then
+    echo "❌ Error: Bash 4.0+ required for this script" >&2
+    echo "Current version: ${BASH_VERSION}" >&2
+    if [[ -n "$latest_bash_path" && $latest_major -ge 4 ]]; then
+        echo "Found suitable Bash at: $latest_bash_path (version $latest_version)" >&2
+        echo "Re-run with: $latest_bash_path $0 $*" >&2
+    else
+        echo "Please upgrade Bash and try again." >&2
+    fi
+    exit 1
+fi
 
 # Function to format timestamp
 format_timestamp() {
