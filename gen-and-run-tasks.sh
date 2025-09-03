@@ -736,36 +736,35 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
     # Function to group tasks by repository to avoid conflicts
     group_tasks_by_repo() {
         local tasks=("$@")
-
-        # Check if associative arrays are supported (bash 4.0+)
-        if [[ ${BASH_VERSINFO[0]} -ge 4 ]]; then
-            declare -A repo_groups
-        else
-            echo "❌ Error: Bash 4.0+ required for parallel execution (associative arrays)" >&2
-            exit 1
-        fi
+        local repo_list=""
+        local task_groups=""
 
         for task_file in "${tasks[@]}"; do
             # Extract repository name from task filename (format: 001_repo_branch.md)
             local filename=$(basename "$task_file" .md)
-            local repo=$(echo "$filename" | sed 's/^[0-9]*_\([^_]*\)_.*$/\1/')
-
-            # Handle repository names with hyphens properly
-            if [[ "$filename" =~ ^[0-9]+_(.+)_[^_]+$ ]]; then
-                repo="${BASH_REMATCH[1]}"
+            
+            # Simple approach: split by underscores and take the middle part(s) as repo name
+            # Remove the number prefix and branch suffix to get repo name
+            local repo=$(echo "$filename" | sed 's/^[0-9]*_//' | sed 's/_[^_]*$//')
+            
+            # Fallback: if no underscores remain, try basic parsing
+            if [[ -z "$repo" ]]; then
+                repo=$(echo "$filename" | sed 's/^[0-9]*_\([^_]*\)_.*$/\1/')
             fi
 
-            if [[ -z "${repo_groups[$repo]}" ]]; then
-                repo_groups[$repo]="$task_file"
+            # Check if we've seen this repo before
+            if [[ "$repo_list" != *"|$repo|"* ]]; then
+                # New repo - add to list
+                repo_list="$repo_list|$repo|"
+                task_groups="$task_groups$repo:$task_file\n"
             else
-                repo_groups[$repo]="${repo_groups[$repo]} $task_file"
+                # Existing repo - append to existing group
+                task_groups=$(echo -e "$task_groups" | sed "s|^$repo:\(.*\)$|$repo:\1 $task_file|")
             fi
         done
 
         # Output grouped tasks
-        for repo in "${!repo_groups[@]}"; do
-            echo "$repo:${repo_groups[$repo]}"
-        done
+        echo -e "$task_groups" | grep -v "^$"
     }
 
     # Function to execute tasks in parallel mode
@@ -783,7 +782,9 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         echo "📁 Temporary directory: $temp_dir"
 
         # Group tasks by repository
-        local repo_groups=($(group_tasks_by_repo "${task_files[@]}"))
+        local grouping_output=$(group_tasks_by_repo "${task_files[@]}")
+        # Convert to array - since we have single line output, just create array with one element
+        local repo_groups=("$grouping_output")
 
         echo "📂 Found ${#repo_groups[@]} repository groups to process"
 
