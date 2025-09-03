@@ -52,6 +52,8 @@ git fetch --all
 git checkout upstream/<record.branch>
 ```
 
+**Note**: Always check out the working branch from the upstream remote, not origin. If the target branch does not exist in the upstream repository, stop the process for this project and report an error.
+
 #### c. Create Feature Branch
 
 1. Generate a short branch name (max 5 words) based on `task.description`
@@ -59,7 +61,7 @@ git checkout upstream/<record.branch>
 3. Create and checkout the new branch:
 
 ```bash
-git checkout -b <task_short_description>
+git checkout -b <task_short_description>-<branch-name>
 ```
 
 #### d. Execute Task
