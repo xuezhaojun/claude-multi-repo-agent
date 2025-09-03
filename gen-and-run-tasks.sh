@@ -139,6 +139,7 @@ load_config() {
     CONFIG_GENERATE_ONLY="false"
     CONFIG_RUN_ONLY="false"
     CONFIG_GUIDE_FILE="GUIDE.md"
+    CONFIG_SHALLOW_CLONE="true"
 
     # Read root config.json if it exists
     if [[ -f "config.json" ]]; then
@@ -148,6 +149,7 @@ load_config() {
         CONFIG_GENERATE_ONLY=$(read_config "config.json" "generateOnly" "$CONFIG_GENERATE_ONLY")
         CONFIG_RUN_ONLY=$(read_config "config.json" "runOnly" "$CONFIG_RUN_ONLY")
         CONFIG_GUIDE_FILE=$(read_config "config.json" "guideFile" "$CONFIG_GUIDE_FILE")
+        CONFIG_SHALLOW_CLONE=$(read_config "config.json" "shallowClone" "$CONFIG_SHALLOW_CLONE")
     fi
 
     # Read bundle config.json if bundle is specified and config exists
@@ -158,6 +160,7 @@ load_config() {
         CONFIG_GENERATE_ONLY=$(read_config "$bundle_path/config.json" "generateOnly" "$CONFIG_GENERATE_ONLY")
         CONFIG_RUN_ONLY=$(read_config "$bundle_path/config.json" "runOnly" "$CONFIG_RUN_ONLY")
         CONFIG_GUIDE_FILE=$(read_config "$bundle_path/config.json" "guideFile" "$CONFIG_GUIDE_FILE")
+        CONFIG_SHALLOW_CLONE=$(read_config "$bundle_path/config.json" "shallowClone" "$CONFIG_SHALLOW_CLONE")
     fi
 }
 
@@ -178,6 +181,8 @@ show_usage() {
     echo "  📄 --save-logs        Save Claude CLI output to log files (when running)"
     echo "  🚀 --parallel         Execute tasks in parallel (automatically enables --save-logs)"
     echo "  ⚙️  --max-jobs NUM     Maximum number of parallel jobs (default: 4, only with --parallel)"
+    echo "  📥 --shallow-clone     Use shallow clone for faster repository setup (default: true)"
+    echo "  📥 --full-clone        Use full clone with complete git history"
     echo "  ❓ --help, -h         Show this help message"
     echo ""
     echo "📁 Configuration files:"
@@ -200,6 +205,7 @@ CLI_SAVE_LOGS=""
 CLI_PARALLEL=""
 CLI_MAX_JOBS=""
 CLI_GUIDE_FILE=""
+CLI_SHALLOW_CLONE=""
 
 # Parse command line arguments first to get bundle path
 while [[ $# -gt 0 ]]; do
@@ -232,6 +238,14 @@ while [[ $# -gt 0 ]]; do
             CLI_MAX_JOBS="$2"
             shift 2
             ;;
+        --shallow-clone)
+            CLI_SHALLOW_CLONE=true
+            shift
+            ;;
+        --full-clone)
+            CLI_SHALLOW_CLONE=false
+            shift
+            ;;
         --help|-h)
             show_usage
             exit 0
@@ -254,6 +268,7 @@ SAVE_LOGS="${CLI_SAVE_LOGS:-$CONFIG_SAVE_LOGS}"
 PARALLEL="${CLI_PARALLEL:-$CONFIG_PARALLEL}"
 MAX_JOBS="${CLI_MAX_JOBS:-$CONFIG_MAX_JOBS}"
 GUIDE_FILE="${CLI_GUIDE_FILE:-$CONFIG_GUIDE_FILE}"
+SHALLOW_CLONE="${CLI_SHALLOW_CLONE:-$CONFIG_SHALLOW_CLONE}"
 
 # Validate conflicting options
 if [[ "$GENERATE_ONLY" == "true" && "$RUN_ONLY" == "true" ]]; then
@@ -380,10 +395,18 @@ if [[ "$RUN_ONLY" != "true" ]]; then
         fi
 
         # Clone the forked repository
-        echo "   📥 Cloning $current_user/$repo to workspace..."
-        if ! gh repo clone "$current_user/$repo" "$repo_dir"; then
-            echo "   ❌ Error: Failed to clone $current_user/$repo"
-            return 1
+        if [[ "$SHALLOW_CLONE" == "true" ]]; then
+            echo "   📥 Cloning $current_user/$repo to workspace (shallow clone)..."
+            if ! gh repo clone "$current_user/$repo" "$repo_dir" -- --depth=1; then
+                echo "   ❌ Error: Failed to clone $current_user/$repo"
+                return 1
+            fi
+        else
+            echo "   📥 Cloning $current_user/$repo to workspace (full clone)..."
+            if ! gh repo clone "$current_user/$repo" "$repo_dir"; then
+                echo "   ❌ Error: Failed to clone $current_user/$repo"
+                return 1
+            fi
         fi
 
         # Add upstream remote
@@ -587,12 +610,27 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
         echo "🚀 Processing: $(basename "$task_file" .md)"
         echo "🕰️  Started at: $start_timestamp"
 
+        # Extract workspace path from task file
+        local workspace_path=$(grep "^- \*\*Workspace Path\*\*:" "$task_file" | sed 's/^- \*\*Workspace Path\*\*: //')
+        if [[ -z "$workspace_path" ]]; then
+            echo "❌ Error: Could not extract workspace path from task file"
+            return 1
+        fi
+
+        if [[ ! -d "$workspace_path" ]]; then
+            echo "❌ Error: Workspace directory does not exist: $workspace_path"
+            return 1
+        fi
+
+        echo "📁 Changing to repository directory: $workspace_path"
+        local original_dir=$(pwd)
+
         local exit_code=0
 
         if [[ "$SAVE_LOGS" == "true" ]]; then
             # Run Claude CLI and save output to log file
             echo "🤖 Running Claude CLI... (output saved to log)"
-            if cat "$task_file" | claude -p "Execute this task" --verbose --output-format text --dangerously-skip-permissions > "$log_file" 2>&1; then
+            if (cd "$workspace_path" && cat "$original_dir/$task_file" | claude -p "Execute this task" --verbose --output-format text --dangerously-skip-permissions) > "$log_file" 2>&1; then
                 exit_code=0
             else
                 exit_code=1
@@ -601,7 +639,7 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
             # Run Claude CLI and print output directly
             echo "🤖 Running Claude CLI..."
             echo "────────────────────────────────────────"
-            if cat "$task_file" | claude -p "Execute this task" --verbose --output-format text --dangerously-skip-permissions; then
+            if (cd "$workspace_path" && cat "$original_dir/$task_file" | claude -p "Execute this task" --verbose --output-format text --dangerously-skip-permissions); then
                 echo "────────────────────────────────────────"
                 exit_code=0
             else
@@ -652,10 +690,23 @@ if [[ "$GENERATE_ONLY" != "true" ]]; then
             return 1
         fi
 
+        # Extract workspace path from task file
+        local workspace_path=$(grep "^- \*\*Workspace Path\*\*:" "$task_file" | sed 's/^- \*\*Workspace Path\*\*: //')
+        if [[ -z "$workspace_path" ]]; then
+            echo "❌ ERROR: Could not extract workspace path from task file $task_file" >&2
+            return 1
+        fi
+
+        if [[ ! -d "$workspace_path" ]]; then
+            echo "❌ ERROR: Workspace directory does not exist: $workspace_path" >&2
+            return 1
+        fi
+
+        local original_dir=$(pwd)
         local exit_code=0
 
         # Always save logs in parallel mode
-        if cat "$task_file" | claude -p "Execute this task" --verbose --output-format text --dangerously-skip-permissions > "$log_file" 2>&1; then
+        if (cd "$workspace_path" && cat "$original_dir/$task_file" | claude -p "Execute this task" --verbose --output-format text --dangerously-skip-permissions) > "$log_file" 2>&1; then
             exit_code=0
         else
             exit_code=1
