@@ -24,14 +24,9 @@ upstream  → Original project repository (PR target)
 
 ### 1. Task Initialization
 
-When the user initiates a task:
+Read the contents of <task>
 
-1. Read the contents of `task.md`
-2. Parse the Records table - each row is a project to process
-
-### 2. Project Processing Loop
-
-For each record in the table:
+### 2. Task Processing
 
 #### a. Navigate to Project
 
@@ -61,6 +56,8 @@ git checkout upstream/<record.branch>
 **Note**: Always check out the working branch from the upstream remote, not origin. If the target branch does not exist in the upstream repository, stop the process for this project and report an error.
 
 #### c. Create Feature Branch
+
+**Note:** Always ensure that modifications are made on the target branch specified for the task.
 
 1. Generate a short branch name (max 5 words) based on `task.description`
 2. Follow Git branch naming best practices
