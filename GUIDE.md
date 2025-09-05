@@ -36,7 +36,13 @@ For each record in the table:
 #### a. Navigate to Project
 
 ```bash
-cd workspace/<record.repo>
+pwd
+```
+
+If not in the correct project directory, and there is a `workspace/<project-name>`, change to it:
+
+```bash
+cd workspace/<project-name>
 ```
 
 #### b. Prepare Repository
